@@ -21,7 +21,8 @@ export DEV_UID=$(id -u) DEV_GID=$(id -g)
 docker compose -f docker-compose.dev.yml build php
 ```
 
-The image is PHP 8.3 with `intl`, `zip`, `gd`, `bcmath`, `pdo_mysql` and Composer 2. A
+The image is PHP 8.3 with `intl`, `zip`, `gd`, `bcmath`, `pdo_mysql`, Composer 2 and a
+`memory_limit` of 1G. A
 MariaDB 10.11 service (`db`, database `testbench`, user `forge`) starts automatically with
 the first command and keeps its data in memory only.
 
@@ -41,8 +42,13 @@ docker compose -f docker-compose.dev.yml run --rm php vendor/bin/pint
 docker compose -f docker-compose.dev.yml run --rm php vendor/bin/pint --test
 
 # Static analysis
-docker compose -f docker-compose.dev.yml run --rm php vendor/bin/phpstan analyse --memory-limit=1G
+docker compose -f docker-compose.dev.yml run --rm php vendor/bin/phpstan analyse
 ```
+
+A clean run reports `No errors`. The `--memory-limit=1G` flag is no longer needed: the base
+image ships no `php.ini`, so `memory_limit` was the 128M default and PHPStan's worker
+processes died with `Child process error (exit code 255)` before reporting anything. The
+image now sets 1G in `Dockerfile.dev`, so rebuild it if you still see that error.
 
 Stop the database when you are done:
 

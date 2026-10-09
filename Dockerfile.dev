@@ -7,6 +7,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && docker-php-ext-install -j"$(nproc)" intl zip gd bcmath pdo_mysql \
     && rm -rf /var/lib/apt/lists/*
 
+# The base image ships no php.ini at all, so memory_limit is the 128M default.
+# PHPStan analyses in child processes and passes its own limit to them; with 128M
+# those children die and the run aborts with "Child process error (exit code
+# 255)" before reporting a single error. Capping parallelism does not help - one
+# worker needs more than 128M on its own. Raising the limit here fixes it for
+# every tool in the image instead of per command line.
+RUN echo 'memory_limit = 1G' > /usr/local/etc/php/conf.d/zz-dev.ini
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 ENV COMPOSER_ALLOW_SUPERUSER=1

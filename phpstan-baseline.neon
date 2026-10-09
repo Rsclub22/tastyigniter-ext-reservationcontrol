@@ -1,0 +1,235 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$guest_num\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/ClosureNotes.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reserve_time\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/ClosureNotes.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:getWorkingHours\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/ClosureNotes.php
+
+		-
+			message: '#^Offset 2 on \*NEVER\* on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: src/ClosureNotes.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between non\-falsy\-string&numeric\-string and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/ClosureNotes.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between numeric\-string and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: src/ClosureNotes.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$duration\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$first_name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$guest_num\.$#'
+			identifier: property.notFound
+			count: 3
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$last_name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reservation_id\.$#'
+			identifier: property.notFound
+			count: 4
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reserve_date\.$#'
+			identifier: property.notFound
+			count: 3
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reserve_time\.$#'
+			identifier: property.notFound
+			count: 3
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$tables\.$#'
+			identifier: property.notFound
+			count: 3
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:addReservationTables\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Match expression does not handle remaining values\: array\|string$#'
+			identifier: match.unhandled
+			count: 1
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Relation ''tables'' is not found in Igniter\\Reservation\\Models\\Reservation model\.$#'
+			identifier: larastan.relationExistence
+			count: 1
+			path: src/Console/EnterReservation.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:filter\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|null, Closure\(Igniter\\Reservation\\Models\\Reservation\)\: bool given\.$#'
+			identifier: argument.type
+			count: 3
+			path: src/DailySheet.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:reject\(\) expects bool\|\(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|Illuminate\\Database\\Eloquent\\Model, Closure\(Igniter\\Reservation\\Models\\Reservation\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/DailySheet.php
+
+		-
+			message: '#^Call to an undefined method Igniter\\Local\\Models\\Location\:\:getReservationStayTime\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/DayData.php
+
+		-
+			message: '#^Called ''env'' outside of the config directory which returns null when the config is cached, use ''config''\.$#'
+			identifier: larastan.noEnvCallsOutsideOfConfig
+			count: 1
+			path: src/DayData.php
+
+		-
+			message: '#^Instanceof between Wagnersnetz\\ReservationControl\\LargePartyBookingManager and Wagnersnetz\\ReservationControl\\LargePartyBookingManager will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: src/DayData.php
+
+		-
+			message: '#^Method Wagnersnetz\\ReservationControl\\DayData\:\:location\(\) should return Igniter\\Local\\Models\\Location but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: src/DayData.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$user_agent\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Entry/CreateReservation.php
+
+		-
+			message: '#^Property Igniter\\Reservation\\Models\\Reservation\:\:\$tables is not writable\.$#'
+			identifier: assign.propertyReadOnly
+			count: 1
+			path: src/Entry/CreateReservation.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:mapWithKeys\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\<string, int\>, Closure\(Igniter\\Admin\\Models\\Status\)\: non\-empty\-array\<string, int\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Entry/Prompt.php
+
+		-
+			message: '#^Called ''env'' outside of the config directory which returns null when the config is cached, use ''config''\.$#'
+			identifier: larastan.noEnvCallsOutsideOfConfig
+			count: 3
+			path: src/Extension.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Extension.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array, Closure\(Igniter\\Reservation\\Models\\Reservation\)\: array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/InternalApiController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:filter\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|null, Closure\(Igniter\\Reservation\\Models\\Reservation\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/InternalApiController.php
+
+		-
+			message: '#^Parameter \#1 \$groupBy of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:groupBy\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: string\)\|list\<Closure\|string\>\|string, Closure\(Igniter\\Reservation\\Models\\Reservation\)\: string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Http/Controllers/InternalApiController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>comment" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Http/Controllers/InternalApiController.php
+
+		-
+			message: '#^Method Wagnersnetz\\ReservationControl\\Http\\Controllers\\InternalBookingController\:\:justCreated\(\) should return Igniter\\Reservation\\Models\\Reservation\|null but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Http/Controllers/InternalBookingController.php
+
+		-
+			message: '#^Parameter \#1 \$view of function view expects view\-string\|null, string given\.$#'
+			identifier: argument.type
+			count: 2
+			path: src/Http/Controllers/InternalBookingController.php
+
+		-
+			message: '#^Call to an undefined method Igniter\\Local\\Models\\Location\:\:getReservationStayTime\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: src/Intake.php
+
+		-
+			message: '#^Property Igniter\\Reservation\\Models\\Reservation\:\:\$tables is not writable\.$#'
+			identifier: assign.propertyReadOnly
+			count: 3
+			path: src/Intake.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/TableAllocator.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$parent_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/TableAllocator.php

@@ -1,5 +1,12 @@
 includes:
     - vendor/larastan/larastan/extension.neon
+    # 60 inherited errors, frozen so that a new one is visible. They are all
+    # Eloquent dynamic properties and relation methods that Larastan cannot
+    # resolve without model stubs for TastyIgniter - not defects in this code.
+    # Paying them off is not this package's job; letting them hide a real
+    # finding would be. Regenerate with --generate-baseline only when the cause
+    # is understood, never to silence a fresh error.
+    - phpstan-baseline.neon
 
 parameters:
     level: 5
