@@ -220,20 +220,16 @@ class LargePartyBookingManager extends BookingManager
             $occupancy = ClosureNotes::occupancyPerTime($date);
         }
 
+        $eventTimes = $cutoffMinutes > 0 ? ClosureNotes::eventTimes($notes, true) : [];
+
         return $timeslots
             ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
-            ->filter(function (Carbon $at) use ($cutoffFrom, $cutoffMinutes, $notes, $date, $applyCap, $maxPax, $maxPerTime, $occupancy, $guests): bool {
-                // Inside an event window the day's closing time means nothing -
-                // the event opens beside or instead of the normal hours (a
-                // 17:00 event after a lunch that closes at 15:00 would otherwise
-                // be cut off entirely). The cut-off then counts from the end of
-                // the window.
-                $window = $cutoffMinutes > 0 ? ClosureNotes::eventWindowAt($notes, $at) : null;
-                $cutoff = $window === null
-                    ? $cutoffFrom
-                    : $date->copy()->setTimeFromTimeString($window[1])->subMinutes($cutoffMinutes);
-
-                if (self::isPastCutoff($at, $cutoff)) {
+            ->filter(function (Carbon $at) use ($cutoffFrom, $eventTimes, $applyCap, $maxPax, $maxPerTime, $occupancy, $guests): bool {
+                // An event time is offered exactly as written: the day's
+                // closing time means nothing there (a 17:00 event after a lunch
+                // that closes at 15:00 would otherwise be cut off entirely),
+                // and counting from the event itself would cut off every one.
+                if (! in_array($at->format('H:i'), $eventTimes, true) && self::isPastCutoff($at, $cutoffFrom)) {
                     return true;
                 }
 
@@ -320,16 +316,14 @@ class LargePartyBookingManager extends BookingManager
 
         return $timeslots
             ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
-            // At an event the tables are assigned by hand, so a slot inside the
-            // event window of an opted-in note skips the table lookup: the note
-            // holds every table, and the lookup would call the event itself
-            // fully booked. The note's guest cap governs capacity there. Always
-            // on, deliberately NOT tied to large_party_skip_table_check: that
+            // At an event time people are counted, not tables: the note holds
+            // every table, and the lookup would call the event itself fully
+            // booked. The note's guest cap governs capacity there. Always on,
+            // deliberately NOT tied to large_party_skip_table_check: that
             // setting is about large parties, and switching it off must not
             // silently kill the event slots. Everything else in the envelope
-            // keeps blocking through the occupied tables. Do not turn this into
-            // a table lookup.
-            ->reject(fn (Carbon $at): bool => ClosureNotes::eventWindowAt($notes, $at) !== null)
+            // is closed by noteBlocked(). Do not turn this into a table lookup.
+            ->reject(fn (Carbon $at): bool => ClosureNotes::isOnlineEventTime($notes, $at))
             ->filter(fn (Carbon $at): bool => TableAllocator::pick(
                 TableAllocator::freeAt($candidates, $at, $duration, $reservations), $guests,
             ) === null)

@@ -195,18 +195,30 @@ class ClosureNotes
     public static function isTakenAt(iterable $notes, Carbon $at): bool
     {
         foreach ($notes as $note) {
-            if (self::isOnlineOpen($note)) {
-                continue;
-            }
-
             $start = $at->copy()->setTimeFromTimeString(
                 Carbon::parse($note->reserve_time)->format('H:i'),
             );
             $end = $start->copy()->addMinutes(max(0, (int) $note->duration));
 
-            if ($at >= $start && $at < $end) {
-                return true;
+            if ($at < $start || $at >= $end) {
+                continue;
             }
+
+            // An opted-in note: its event times are the one hole in the
+            // envelope, everything else inside stays closed - "17 Uhr" is
+            // 17:00 and not the evening. An opted-in note that names no time
+            // keeps its window open as a whole, as it always did.
+            if (self::isOnlineOpen($note)
+                && ($eventTimes = self::eventTimes([$note], true)) !== []
+                && in_array($at->format('H:i'), $eventTimes, true)) {
+                continue;
+            }
+
+            if (self::isOnlineOpen($note) && self::eventTimes([$note], true) === []) {
+                continue;
+            }
+
+            return true;
         }
 
         return false;
@@ -284,7 +296,8 @@ class ClosureNotes
     {
         return collect($notes)
             ->filter(fn (Reservation $n): bool => self::isAllDay($n, $date)
-                || in_array($time, self::times([$n]), true))
+                || in_array($time, self::times([$n]), true)
+                || in_array($time, self::eventTimes([$n]), true))
             ->values();
     }
 
@@ -515,23 +528,32 @@ class ClosureNotes
     }
 
     /**
-     * What a note offers as event slots, given the normal opening ranges of its
-     * day (pairs of HH:MM, several allowed, may be empty on a closed day).
-     *
-     * The stored window is the envelope; the times in the text are slots inside
-     * it. Each runs to the next stated time or the end of the envelope. A time
-     * outside the envelope, or that is no clock time, opens nothing. The
-     * windows replace the day's hours when the envelope overlaps them, and are
-     * added when it does not.
-     *
-     * @param  array<int, array{0: string, 1: string}>  $normalRanges
+     * Width of the range handed to the schedule for one event time. The
+     * platform builds time slots from ranges and never emits a slot at a
+     * range's end, so a single time needs a range of its own; five minutes is
+     * the platform's smallest slot interval, hence no second slot can fit in.
      */
-    public static function eventPlan(Reservation $note, array $normalRanges = []): EventPlan
+    public const int EVENT_SLOT_MINUTES = 5;
+
+    /**
+     * What a note states as times inside its stored window, regardless of the
+     * online opt-in.
+     *
+     * @return array{valid: bool, start: int, end: int, stated: array<int, string>, invalid: array<int, array{time: string, reason: string}>}
+     */
+    private static function reading(Reservation $note): array
     {
-        $dropped = [];
+        $invalid = [];
         $stated = [];
 
-        if (preg_match_all(self::EVENT_TIME_PATTERN, (string) $note->comment, $matches, PREG_SET_ORDER)) {
+        // What a note says to guests ("online buchbar: Märchenabend mit Menü ab
+        // 18 Uhr") describes the evening, it does not name a booking time: it
+        // is left out, so that a time in it never opens a slot of its own.
+        $text = self::isOnlineOpen($note)
+            ? (string) preg_replace(self::GUEST_TEXT_PATTERN, '', (string) $note->comment)
+            : (string) $note->comment;
+
+        if (preg_match_all(self::EVENT_TIME_PATTERN, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $m) {
                 // First alternative ("17 Uhr") fills groups 1-2, the bare colon form groups 3-4.
                 [$hour, $minute] = ($m[1] ?? '') !== ''
@@ -540,7 +562,7 @@ class ClosureNotes
                 $time = sprintf('%02d:%02d', $hour, $minute);
 
                 if ($hour > 23 || $minute > 59) {
-                    $dropped[] = ['time' => $time, 'reason' => EventPlan::INVALID_TIME];
+                    $invalid[] = ['time' => $time, 'reason' => EventPlan::INVALID_TIME];
 
                     continue;
                 }
@@ -552,18 +574,110 @@ class ClosureNotes
         $stated = array_values(array_unique($stated));
         sort($stated);
 
+        $start = self::minutes(Carbon::parse($note->reserve_time)->format('H:i'));
+        $end = $start + max(0, (int) $note->duration);
+
+        // Empty, or running into the next day: no slot is derived from it.
+        return ['valid' => $end > $start && $end < 1440, 'start' => $start, 'end' => $end, 'stated' => $stated, 'invalid' => $invalid];
+    }
+
+    /**
+     * The event times of the notes: exactly the times written in the text that
+     * lie inside the note's stored window, as HH:MM, ascending. Nothing else
+     * inside the window is an event time.
+     *
+     * Phone intake asks for all of them (the default); online booking only
+     * for those of notes that opt in with "online buchbar".
+     *
+     * @return array<int, string>
+     */
+    public static function eventTimes(iterable $notes, bool $onlineOnly = false): array
+    {
+        $times = [];
+
+        foreach ($notes as $note) {
+            if ($onlineOnly && ! self::isOnlineOpen($note)) {
+                continue;
+            }
+
+            $reading = self::reading($note);
+            if (! $reading['valid']) {
+                continue;
+            }
+
+            foreach ($reading['stated'] as $time) {
+                $t = self::minutes($time);
+                if ($t >= $reading['start'] && $t < $reading['end']) {
+                    $times[] = $time;
+                }
+            }
+        }
+
+        $times = array_values(array_unique($times));
+        sort($times);
+
+        return $times;
+    }
+
+    /**
+     * Is this reservation booked at an event time of a closure note that day?
+     * Never throws: asked while saving, where a wrong answer is better than
+     * a lost booking.
+     */
+    public static function isEventBooking(Reservation $reservation): bool
+    {
+        try {
+            if (self::isNote($reservation) || ! $reservation->reserve_date || ! $reservation->reserve_time) {
+                return false;
+            }
+
+            $date = Carbon::parse($reservation->reserve_date);
+
+            return in_array(
+                Carbon::parse($reservation->reserve_time)->format('H:i'),
+                self::eventTimes(self::onDate($date)),
+                true,
+            );
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /** Is this moment an event time of an opted-in note? (Online booking.) */
+    public static function isOnlineEventTime(iterable $notes, Carbon $at): bool
+    {
+        return in_array($at->format('H:i'), self::eventTimes($notes, true), true);
+    }
+
+    /**
+     * What a note offers as event slots, given the normal opening ranges of its
+     * day (pairs of HH:MM, several allowed, may be empty on a closed day).
+     *
+     * The stored window is the envelope and stays blocked; the times in the
+     * text are the only slots inside it - each one single time, not a window
+     * up to the next. A time outside the envelope, or that is no clock time,
+     * opens nothing. The slots replace the day's hours when the envelope
+     * overlaps them, and are added when it does not.
+     *
+     * @param  array<int, array{0: string, 1: string}>  $normalRanges
+     */
+    public static function eventPlan(Reservation $note, array $normalRanges = []): EventPlan
+    {
+        $reading = self::reading($note);
+        $stated = $reading['stated'];
+
         if (! self::isOnlineOpen($note)) {
             return new EventPlan(EventPlan::NOT_OPTED_IN, null, $stated, [], null, []);
         }
 
-        $startMinutes = self::minutes(Carbon::parse($note->reserve_time)->format('H:i'));
-        $endMinutes = $startMinutes + max(0, (int) $note->duration);
+        $dropped = $reading['invalid'];
 
-        // Empty, or running into the next day: no slot is derived from it.
-        if ($endMinutes <= $startMinutes || $endMinutes >= 1440) {
+        if (! $reading['valid']) {
             return new EventPlan(EventPlan::NO_ENVELOPE, null, $stated, [], null, $dropped);
         }
 
+        $startMinutes = $reading['start'];
+        $endMinutes = $reading['end'];
         $envelope = [self::clock($startMinutes), self::clock($endMinutes)];
 
         $inside = [];
@@ -585,33 +699,13 @@ class ClosureNotes
 
         $windows = [];
         foreach ($inside as $i => $from) {
-            $to = $inside[$i + 1] ?? $endMinutes;
+            // Never reaching the next stated time or the end of the envelope.
+            $to = min($from + self::EVENT_SLOT_MINUTES, $inside[$i + 1] ?? $endMinutes, $endMinutes);
 
             $windows[] = [self::clock($from), self::clock($to)];
         }
 
         return new EventPlan(EventPlan::ACTIVE, $envelope, $stated, $windows, $replace ? EventPlan::REPLACE : EventPlan::ADD, $dropped);
-    }
-
-    /**
-     * The event window of an opted-in note that contains this moment, as
-     * [start, end] (HH:MM) - null when there is none. Windows are those of
-     * eventPlan(), computed against the day's opening hours.
-     */
-    public static function eventWindowAt(iterable $notes, Carbon $at): ?array
-    {
-        $hours = self::openingHours($at);
-        $time = $at->format('H:i');
-
-        foreach ($notes as $note) {
-            foreach (self::eventPlan($note, $hours === null ? [] : [$hours])->windows as $window) {
-                if ($time >= $window[0] && $time < $window[1]) {
-                    return $window;
-                }
-            }
-        }
-
-        return null;
     }
 
     /**

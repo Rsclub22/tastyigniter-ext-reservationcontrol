@@ -41,20 +41,20 @@ function dayOf(WorkingSchedule $schedule, string $date = EVENT_DAY): string
     return (string) $schedule->forDate(Carbon::parse($date));
 }
 
-it('adds the event window beside lunch when the envelope lies outside the opening hours', function (): void {
+it('adds the single event time beside lunch when the envelope lies outside the opening hours', function (): void {
     $schedule = eventSchedule();
     EventSlots::applyNotes($schedule, collect([eventNote('MÄRCHENABEND 17 UHR MAX 30 PAX. online buchbar')]));
 
-    expect(dayOf($schedule))->toBe('11:30-15:00,17:00-20:00')
+    expect(dayOf($schedule))->toBe('11:30-15:00,17:00-17:05')
         // The other Fridays are untouched.
         ->and(dayOf($schedule, '2030-06-21'))->toBe('11:30-15:00');
 });
 
-it('lets the event windows replace the day when the envelope covers lunch', function (): void {
+it('lets the event times replace the day when the envelope covers lunch', function (): void {
     $schedule = eventSchedule();
     EventSlots::applyNotes($schedule, collect([eventNote('Weihnachtsmenü ab 11 Uhr, online buchbar', '10:00:00', 360)]));
 
-    expect(dayOf($schedule))->toBe('11:00-16:00');
+    expect(dayOf($schedule))->toBe('11:00-11:05');
 });
 
 it('changes nothing without the online opt-in', function (): void {
@@ -70,7 +70,7 @@ it('reads the Märchenabend note: 17 Uhr, and not the 30 of "MAX 30 PAX"', funct
     $plan = ClosureNotes::eventPlan(eventNote(REAL_MAERCHEN.' online buchbar'), [['11:30', '15:00']]);
 
     expect($plan->stated)->toBe(['17:00'])
-        ->and($plan->windows)->toBe([['17:00', '20:00']])
+        ->and($plan->windows)->toBe([['17:00', '17:05']])
         ->and($plan->mode)->toBe(EventPlan::ADD)
         ->and($plan->envelope)->toBe(['16:00', '20:00'])
         ->and($plan->dropped)->toBe([]);
@@ -114,19 +114,29 @@ it('drops a time outside the envelope without throwing and leaves the day as it 
 it('keeps the valid time and drops the typo when both stand in one note', function (): void {
     $plan = ClosureNotes::eventPlan(eventNote('12 Uhr und 18 Uhr, online buchbar'), [['11:30', '15:00']]);
 
-    expect($plan->windows)->toBe([['18:00', '20:00']])
+    expect($plan->windows)->toBe([['18:00', '18:05']])
         ->and($plan->dropped)->toBe([['time' => '12:00', 'reason' => EventPlan::OUTSIDE_ENVELOPE]]);
 });
 
-it('never hands overlapping periods over when two notes name overlapping windows', function (): void {
+it('never hands overlapping periods over when two notes name times too close together', function (): void {
+    $schedule = eventSchedule();
+    EventSlots::applyNotes($schedule, collect([
+        eventNote('Erstes 17 Uhr, online buchbar'),
+        eventNote('Zweites 17:03 Uhr, online buchbar'),
+    ]));
+
+    // 17:00-17:05 and 17:03-17:08 overlap: the second is dropped, not merged or thrown.
+    expect(dayOf($schedule))->toBe('11:30-15:00,17:00-17:05');
+});
+
+it('keeps two notes with times far enough apart as two separate single times', function (): void {
     $schedule = eventSchedule();
     EventSlots::applyNotes($schedule, collect([
         eventNote('Erstes 17 Uhr, online buchbar'),
         eventNote('Zweites 18 Uhr, online buchbar'),
     ]));
 
-    // The second window overlaps the first and is dropped, not merged or thrown.
-    expect(dayOf($schedule))->toBe('11:30-15:00,17:00-20:00');
+    expect(dayOf($schedule))->toBe('11:30-15:00,17:00-17:05,18:00-18:05');
 });
 
 it('opens nothing for a time it cannot read', function (string $comment): void {
@@ -150,15 +160,27 @@ it('reads 25 Uhr as an invalid time and says so', function (): void {
     expect($plan->dropped)->toBe([['time' => '25:00', 'reason' => EventPlan::INVALID_TIME]]);
 });
 
-it('gives every stated time a window up to the next one, the last up to the end of the envelope', function (): void {
+it('opens exactly the stated times: each one alone, the rest of the envelope stays closed', function (): void {
     $note = eventNote('Märchenabend 17 Uhr und 19:30 Uhr, online buchbar', '16:00:00', 300);
     $plan = ClosureNotes::eventPlan($note, [['11:30', '15:00']]);
     $schedule = eventSchedule();
     EventSlots::applyNotes($schedule, collect([$note]));
 
-    expect($plan->windows)->toBe([['17:00', '19:30'], ['19:30', '21:00']])
+    expect($plan->windows)->toBe([['17:00', '17:05'], ['19:30', '19:35']])
         ->and($plan->stated)->toBe(['17:00', '19:30'])
-        ->and(dayOf($schedule))->toBe('11:30-15:00,17:00-19:30,19:30-21:00');
+        ->and(dayOf($schedule))->toBe('11:30-15:00,17:00-17:05,19:30-19:35');
+});
+
+it('cuts the range of a time short when the next stated time is closer than the slot width', function (): void {
+    $plan = ClosureNotes::eventPlan(eventNote('17 Uhr und 17:03 Uhr, online buchbar'), [['11:30', '15:00']]);
+
+    expect($plan->windows)->toBe([['17:00', '17:03'], ['17:03', '17:08']]);
+});
+
+it('never lets a time at the very end of the envelope reach past it', function (): void {
+    $plan = ClosureNotes::eventPlan(eventNote('19:59 Uhr, online buchbar'), [['11:30', '15:00']]);
+
+    expect($plan->windows)->toBe([['19:59', '20:00']]);
 });
 
 it('reads a bare 17:30 and ignores dates and numbers', function (): void {
@@ -179,7 +201,7 @@ it('opens an event on a day the house is normally closed', function (): void {
     $schedule = eventSchedule([]);
     EventSlots::applyNotes($schedule, collect([eventNote('Märchenabend 17 Uhr, online buchbar')]));
 
-    expect(dayOf($schedule))->toBe('17:00-20:00');
+    expect(dayOf($schedule))->toBe('17:00-17:05');
 });
 
 it('treats an overnight opening range as occupying the early hours', function (): void {
@@ -219,7 +241,7 @@ it('reaches the schedule through the created event, from the database', function
     $delivery->setType('delivery');
     WorkingScheduleCreatedEvent::dispatch(new Location, $delivery);
 
-    expect(dayOf($opening, $future->toDateString()))->toBe('11:30-15:00,17:00-20:00')
+    expect(dayOf($opening, $future->toDateString()))->toBe('11:30-15:00,17:00-17:05')
         // Only the opening schedule: nothing opens for delivery or collection.
         ->and(dayOf($delivery, $future->toDateString()))->toBe('11:30-15:00');
 });

@@ -63,21 +63,21 @@ function eventBlocked(array $times, int $guests = 2): array
 
     return collect($manager->isTimeslotsFullyBookedOn($slots, $date, $guests))
         ->map(fn (string $dt): string => Carbon::parse($dt)->format('H:i'))
-        ->unique()->values()->all();
+        ->unique()->sort()->values()->all();
 }
 
-it('books a slot inside the event window although the note holds every table, and blocks the rest of the envelope', function (): void {
+it('books the event time although the note holds every table, and blocks the rest of the envelope', function (): void {
     eventNoteHoldingAllTables('Märchenabend 17 Uhr, online buchbar');
 
-    // 12:00 lunch, 16:30 envelope before the window, 17:00 and 18:30 inside the window.
-    expect(eventBlocked(['12:00', '16:30', '17:00', '18:30']))->toBe(['16:30']);
+    // 12:00 lunch, 16:30 envelope before the event, 17:00 the event, 17:15 and 18:30 after it.
+    expect(eventBlocked(['12:00', '16:30', '17:00', '17:15', '18:30']))->toBe(['16:30', '17:15', '18:30']);
 });
 
 it('does not tie the event slot to the large-party table switch', function (): void {
     eventNoteHoldingAllTables('Märchenabend 17 Uhr, online buchbar');
     eventSetting('large_party_skip_table_check', false);
 
-    expect(eventBlocked(['12:00', '16:30', '17:00', '18:30']))->toBe(['16:30']);
+    expect(eventBlocked(['12:00', '16:30', '17:00', '18:30']))->toBe(['16:30', '18:30']);
 });
 
 it('changes nothing for a note without the opt-in: the whole envelope stays blocked', function (): void {
@@ -97,20 +97,20 @@ it('still applies the guest cap of the note inside the event window', function (
     eventSetting('apply_max_guests_online', true);
 
     // 8 already at 17:00, cap 10: two fit, three do not.
-    expect(eventBlocked(['17:00', '18:30'], 2))->toBe([])
-        ->and(eventBlocked(['17:00', '18:30'], 3))->toBe(['17:00']);
+    expect(eventBlocked(['17:00'], 2))->toBe([])
+        ->and(eventBlocked(['17:00'], 3))->toBe(['17:00']);
 });
 
-it('counts the cut-off from the end of the event window, not from the lunch closing time', function (): void {
+it('leaves the event time out of the cut-off, which still trims the lunch', function (): void {
     eventNoteHoldingAllTables('Märchenabend 17 Uhr, online buchbar');
     eventSetting('cutoff_minutes_before_closing', 120);
 
-    // Lunch closes 15:00, cut-off 13:00: 14:00 is blocked. The event ends 20:00, cut-off 18:00:
-    // 17:00 and exactly 18:00 stay, 18:30 goes.
-    expect(eventBlocked(['12:00', '14:00', '17:00', '18:00', '18:30']))->toBe(['14:00', '18:30']);
+    // Lunch closes 15:00, cut-off 13:00: 14:00 is blocked. 17:00 is the event time and is not cut off;
+    // 18:00 is no event time and the envelope blocks it.
+    expect(eventBlocked(['12:00', '14:00', '17:00', '18:00']))->toBe(['14:00', '18:00']);
 });
 
-it('keeps the table check on after the event window ends', function (): void {
+it('keeps the table check on after the event time', function (): void {
     eventNoteHoldingAllTables('Märchenabend 17 Uhr, online buchbar');
     $id = DB::table('reservations')->insertGetId([
         'location_id' => 1, 'guest_num' => 20, 'first_name' => 'A', 'last_name' => 'Voll',
@@ -122,6 +122,6 @@ it('keeps the table check on after the event window ends', function (): void {
         DB::table('reservation_tables')->insert(['reservation_id' => $id, 'dining_table_id' => $tableId, 'table_id' => $tableId]);
     }
 
-    // 20:30 lies after the window (ends 20:00) and every table is taken then.
+    // 20:30 lies after the envelope (ends 20:00) and every table is taken then.
     expect(eventBlocked(['17:00', '20:30']))->toBe(['20:30']);
 });
