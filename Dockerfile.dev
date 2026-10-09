@@ -1,0 +1,13 @@
+# Development-only image. Not needed to run the extension in production.
+FROM php:8.3-cli
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git unzip libicu-dev libzip-dev libpng-dev libjpeg-dev libfreetype-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-freetype \
+    && docker-php-ext-install -j"$(nproc)" intl zip gd bcmath pdo_mysql \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+ENV COMPOSER_ALLOW_SUPERUSER=1
+WORKDIR /app
