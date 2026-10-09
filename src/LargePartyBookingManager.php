@@ -90,6 +90,79 @@ class LargePartyBookingManager extends BookingManager
      */
     public function isTimeslotsFullyBookedOn(Collection $timeslots, Carbon $date, ?int $noOfGuest = null): array
     {
+        $booked = $this->fullyBookedByTablesAndNotes($timeslots, $date, $noOfGuest);
+
+        // The two online-only limits. Neither applies to large parties (those
+        // are arranged by phone) and neither applies at the counter, where
+        // staff may deliberately go beyond them.
+        if ($this->internal || $this->isLargeParty()) {
+            return $booked;
+        }
+
+        $extra = $this->onlineLimited($timeslots, $date, max(1, (int) $noOfGuest));
+
+        return $extra === [] ? $booked : array_values(array_unique(array_merge($booked, $extra)));
+    }
+
+    /**
+     * Slots that online booking closes although a table would be free: too
+     * close to closing time, or beyond the guest cap of a closure note.
+     *
+     * @return array<int, string> date-times (Y-m-d H:i:s)
+     */
+    private function onlineLimited(Collection $timeslots, Carbon $date, int $guests): array
+    {
+        $cutoffHours = SettingValue::int('cutoff_hours_before_closing', 0, 0);
+        $applyCap = SettingValue::flag('apply_max_guests_online', false);
+
+        if ($cutoffHours === 0 && ! $applyCap) {
+            return [];
+        }
+
+        $cutoffFrom = null;
+        if ($cutoffHours > 0 && ($hours = ClosureNotes::openingHours($date)) !== null) {
+            $closing = $date->copy()->setTimeFromTimeString($hours[1]);
+            // Closing after midnight: 18:00 - 01:00 closes on the next day.
+            if ($hours[1] <= $hours[0]) {
+                $closing->addDay();
+            }
+            $cutoffFrom = $closing->subHours($cutoffHours);
+        }
+
+        $maxPax = null;
+        $maxPerTime = [];
+        $occupancy = [];
+        if ($applyCap) {
+            $notes = ClosureNotes::onDate($date);
+            $maxPax = ClosureNotes::maxPax($notes);
+            $maxPerTime = ClosureNotes::maxPaxPerTime($notes);
+            $occupancy = ClosureNotes::occupancyPerTime($date);
+        }
+
+        return $timeslots
+            ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
+            ->filter(function (Carbon $at) use ($cutoffFrom, $applyCap, $maxPax, $maxPerTime, $occupancy, $guests): bool {
+                if ($cutoffFrom !== null && $at->gt($cutoffFrom)) {
+                    return true;
+                }
+
+                if (! $applyCap) {
+                    return false;
+                }
+
+                $time = $at->format('H:i');
+                $cap = $maxPerTime[$time] ?? $maxPax;
+
+                return $cap !== null && ($occupancy[$time] ?? 0) + $guests > $cap;
+            })
+            ->map(fn (Carbon $at) => $at->toDateTimeString())
+            ->values()
+            ->all();
+    }
+
+    /** @return array<int, string> */
+    private function fullyBookedByTablesAndNotes(Collection $timeslots, Carbon $date, ?int $noOfGuest): array
+    {
         // A note that claims the whole day closes online booking entirely -
         // also for large parties, which run past the table check just below.
         // Without this, a party could sit itself in online at Christmas even
