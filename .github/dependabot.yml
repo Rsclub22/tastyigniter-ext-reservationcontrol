@@ -1,0 +1,29 @@
+version: 2
+
+updates:
+  # The package's own dependencies. TastyIgniter and Laravel move fast, and an
+  # extension that lags behind a major version stops installing for new users.
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Dev tooling churns constantly and never reaches an installation.
+      # One pull request a week for all of it, instead of five.
+      dev-tooling:
+        dependency-type: development
+
+  # The development container. Its base image carries the PHP version the test
+  # suite actually runs on, so a stale one silently tests the wrong PHP.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Workflow actions. Nothing here yet - this entry starts working the day a
+  # workflow is added, rather than being forgotten then.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
