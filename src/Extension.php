@@ -295,6 +295,13 @@ class Extension extends BaseExtension
             StandardIncludes::apply($event->request, $event->route->getName());
         });
 
+        // API routes carry no 'igniter' middleware group, so nothing sets the
+        // locale there and mails sent from the API render in English. See
+        // RequestLocale. Never throws.
+        Event::listen(RouteMatched::class, static function (RouteMatched $event): void {
+            RequestLocale::apply($event->route);
+        });
+
         if ($orange) {
             $this->registerOrangeValidator();
         }

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+
+- Mails (and any translated text) triggered from the API rendered in English on a German
+  installation: API routes carry no `igniter` middleware group, so nothing set the locale and
+  the request kept `app.locale`. A `RouteMatched` listener now gives such routes the
+  installation's default language (through the platform's own localization setter); routes
+  that carry the group are untouched. Never throws; failures are logged and leave the locale
+  alone.
+
 ### Changed
 
 - Event times are no longer windows: the first version offered everything from the stated
