@@ -115,6 +115,12 @@ return [
                 'type' => 'text',
                 'default' => Extension::DEFAULT_PHONE_PATTERN,
             ],
+            'public_form_fields' => [
+                'label' => 'lang:reservationcontrol::default.label_public_form_fields',
+                'comment' => 'lang:reservationcontrol::default.help_public_form_fields',
+                'type' => 'textarea',
+                'default' => implode("\n", Extension::DEFAULT_PUBLIC_FORM_FIELDS),
+            ],
             'phone_required_public' => [
                 'label' => 'lang:reservationcontrol::default.label_phone_required_public',
                 'comment' => 'lang:reservationcontrol::default.help_phone_required_public',

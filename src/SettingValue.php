@@ -115,6 +115,34 @@ final class SettingValue
         return preg_match('/^\d{1,3}$/', $mask) === 1 && (int) $mask <= ($isV6 ? 128 : 32) && IpUtils::checkIp($address, $entry);
     }
 
+    /**
+     * A list of field names (letters, digits, underscore), one per line or
+     * comma separated. One malformed entry rejects the whole list.
+     *
+     * @param  list<string>  $default
+     * @return list<string>
+     */
+    public static function identifiers(string $key, array $default): array
+    {
+        $value = self::stored($key);
+        if (! is_string($value)) {
+            return $default;
+        }
+
+        $entries = preg_split('/[\s,;]+/', trim($value), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if ($entries === []) {
+            return $default;
+        }
+
+        foreach ($entries as $entry) {
+            if (preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,63}$/', $entry) !== 1) {
+                return $default;
+            }
+        }
+
+        return array_values(array_unique($entries));
+    }
+
     /** A PCRE pattern that compiles, otherwise the default. */
     public static function pattern(string $key, string $default): string
     {

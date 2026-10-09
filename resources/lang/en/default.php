@@ -291,6 +291,8 @@ return [
     'help_max_phone_length' => 'Applies in the back office and the API.',
     'label_phone_pattern' => 'Public form: telephone pattern',
     'help_phone_pattern' => 'Regular expression with delimiters that the telephone number of the public booking form must match. Invalid patterns fall back to the default.',
+    'label_public_form_fields' => 'Public form: recognising fields',
+    'help_public_form_fields' => 'Field names by which the validator of the public booking form is recognised (Orange theme only). One per line. Change only if your form uses other names; an invalid entry rejects the whole list.',
     'label_phone_required_public' => 'Public form: telephone required',
     'help_phone_required_public' => 'On: guests must give a telephone number on the public booking form.',
     'label_reply_to_address' => 'Reply-To address',

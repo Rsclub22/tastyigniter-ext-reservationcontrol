@@ -22,10 +22,13 @@ use Symfony\Component\Mime\Address;
 use Wagnersnetz\ReservationControl\Api\StandardIncludes;
 use Wagnersnetz\ReservationControl\Console\EnterReservation;
 use Wagnersnetz\ReservationControl\Console\ImportReservations;
+use Wagnersnetz\ReservationControl\Contracts\GuestCountResolver;
 use Wagnersnetz\ReservationControl\Http\Controllers\InternalApiController;
 use Wagnersnetz\ReservationControl\Http\Controllers\InternalBookingController;
 use Wagnersnetz\ReservationControl\Http\Middleware\InternalNetworkOnly;
 use Wagnersnetz\ReservationControl\Models\Settings;
+use Wagnersnetz\ReservationControl\Theme\NullGuestCount;
+use Wagnersnetz\ReservationControl\Theme\OrangeGuestCount;
 
 /**
  * Local adjustments to the reservation form:
@@ -40,8 +43,8 @@ use Wagnersnetz\ReservationControl\Models\Settings;
  */
 class Extension extends BaseExtension
 {
-    /** Fields by which the rule set of the booking form is recognised. */
-    private const BOOKING_FIELDS = ['firstName', 'lastName', 'telephone'];
+    /** Fields by which the rule set of the public booking form is recognised. */
+    public const array DEFAULT_PUBLIC_FORM_FIELDS = ['firstName', 'lastName', 'telephone'];
 
     /** Used whenever the settings hold no usable value. */
     public const array DEFAULT_TRUSTED_PROXIES = ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
@@ -210,38 +213,17 @@ class Extension extends BaseExtension
         // reservation extension, which originally binds the singleton.
         $this->app->singleton(BookingManager::class, LargePartyBookingManager::class);
 
-        // Not over componentHook(): ComponentHookRegistry::boot() wires up the
-        // mount/hydrate listeners once when Livewire boots. If the hook is
-        // registered after that - and extensions boot later - it never gets
-        // them. listen(), by contrast, hangs straight into the event bus,
-        // independent of the order.
-        Livewire::listen('mount', function ($component): void {
-            if ($component instanceof Booking) {
-                BookingContext::remember($component);
-            }
-        });
+        $orange = class_exists(Booking::class);
 
-        Livewire::listen('hydrate', function ($component): void {
-            if ($component instanceof Booking) {
-                BookingContext::remember($component);
-            }
-        });
+        $this->app->singleton(GuestCountResolver::class, fn (): GuestCountResolver => $orange
+            ? new OrangeGuestCount
+            : new NullGuestCount);
 
-        // prepareDates() only runs in mount(); the blocked days would otherwise
-        // stay as they were while the time slots have already opened up.
-        Livewire::listen('update', function ($component, $fullPath) {
-            if (! $component instanceof Booking || str_before((string) $fullPath, '.') !== 'guest') {
-                return null;
-            }
-
-            return function () use ($component): void {
-                (function (): void {
-                    $this->dates = [];
-                    $this->disabledDates = [];
-                    $this->prepareDates();
-                })->call($component);
-            };
-        });
+        // The hooks below only make sense for the Orange theme. Without it the
+        // guest count stays unknown and the ordinary booking path applies.
+        if ($orange) {
+            $this->registerOrangeHooks();
+        }
 
         // Always deliver reservations in the API with status and tables. See
         // StandardIncludes: without it TastyCompanion shows "no value" for the
@@ -250,6 +232,14 @@ class Extension extends BaseExtension
             StandardIncludes::apply($event->request, $event->route->getName());
         });
 
+        if ($orange) {
+            $this->registerOrangeValidator();
+        }
+    }
+
+    /** Tightens the telephone rule once the rule set of the public booking form is recognised. */
+    private function registerOrangeValidator(): void
+    {
         Validator::resolver(function ($translator, array $data, array $rules, array $messages, array $attributes) {
             if ($this->isBookingForm($rules)) {
                 $rules['telephone'] = self::publicPhoneRules();
@@ -315,6 +305,12 @@ class Extension extends BaseExtension
     public static function maxPhoneLength(): int
     {
         return SettingValue::int('max_phone_length', self::DEFAULT_MAX_PHONE_LENGTH);
+    }
+
+    /** @return list<string> */
+    public static function publicFormFields(): array
+    {
+        return SettingValue::identifiers('public_form_fields', self::DEFAULT_PUBLIC_FORM_FIELDS);
     }
 
     /** Rules for the telephone field of the public booking form. */
@@ -404,9 +400,46 @@ class Extension extends BaseExtension
             });
     }
 
+    /** Livewire hooks for the Orange theme's booking component. */
+    private function registerOrangeHooks(): void
+    {
+        // Not over componentHook(): ComponentHookRegistry::boot() wires up the
+        // mount/hydrate listeners once when Livewire boots. If the hook is
+        // registered after that - and extensions boot later - it never gets
+        // them. listen(), by contrast, hangs straight into the event bus,
+        // independent of the order.
+        Livewire::listen('mount', function ($component): void {
+            if ($component instanceof Booking) {
+                BookingContext::remember($component);
+            }
+        });
+
+        Livewire::listen('hydrate', function ($component): void {
+            if ($component instanceof Booking) {
+                BookingContext::remember($component);
+            }
+        });
+
+        // prepareDates() only runs in mount(); the blocked days would otherwise
+        // stay as they were while the time slots have already opened up.
+        Livewire::listen('update', function ($component, $fullPath) {
+            if (! $component instanceof Booking || str_before((string) $fullPath, '.') !== 'guest') {
+                return null;
+            }
+
+            return function () use ($component): void {
+                (function (): void {
+                    $this->dates = [];
+                    $this->disabledDates = [];
+                    $this->prepareDates();
+                })->call($component);
+            };
+        });
+    }
+
     private function isBookingForm(array $rules): bool
     {
-        foreach (self::BOOKING_FIELDS as $field) {
+        foreach (self::publicFormFields() as $field) {
             if (! array_key_exists($field, $rules)) {
                 return false;
             }

@@ -291,6 +291,8 @@ return [
     'help_max_phone_length' => 'Gilt im Backoffice und in der API.',
     'label_phone_pattern' => 'Öffentliches Formular: Telefonmuster',
     'help_phone_pattern' => 'Regulärer Ausdruck samt Begrenzern, dem die Telefonnummer im öffentlichen Buchungsformular entsprechen muss. Ungültige Muster fallen auf den Standard zurück.',
+    'label_public_form_fields' => 'Öffentliches Formular: Erkennungsfelder',
+    'help_public_form_fields' => 'Feldnamen, an denen der Validator des öffentlichen Buchungsformulars erkannt wird (nur Orange-Theme). Eines je Zeile. Nur ändern, wenn Ihr Formular andere Namen nutzt; ein ungültiger Eintrag verwirft die ganze Liste.',
     'label_phone_required_public' => 'Öffentliches Formular: Telefon Pflicht',
     'help_phone_required_public' => 'An: Gäste müssen im öffentlichen Buchungsformular eine Telefonnummer angeben.',
     'label_reply_to_address' => 'Antwortadresse',
