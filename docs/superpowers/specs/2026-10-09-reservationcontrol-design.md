@@ -126,9 +126,8 @@ abbilden.
 
 | Schlüssel | Vorgabe | ersetzt |
 | --- | --- | --- |
-| `internal_route_prefix` | `intern` | `Extension:282` |
-| `internal_allowed_networks` | heutige Liste | `InternalNetworkOnly:27` |
-| `trusted_proxies` | heutige Liste | `Extension:67` |
+| `internal_allowed_networks` | nur Loopback (127.0.0.1, ::1) — bewusst enger als die frühere Liste | `InternalNetworkOnly:27` |
+| `trusted_proxies` | leer — bewusst enger als die frühere Liste | `Extension:67` |
 | `internal_booking_horizon_days` | 365 | `INTERN_VORLAUF_TAGE` |
 | `internal_allow_same_day` | an | `:54-55` |
 
@@ -281,7 +280,9 @@ harten Abhängigkeit zu `suggest`.
 
 Routennamen und URL-Pfade bleiben, wo sie sind: `/intern`, `/intern/druck` und
 die JSON-Endpunkte hängen an literalen Strings, nicht am Erweiterungscode. Der
-Pfadbestandteil wird über `internal_route_prefix` einstellbar, Vorgabe `intern`.
+Pfadbestandteil `intern` bleibt fest.
+
+> Gestrichen: Eine Einstellung `internal_route_prefix` wurde nie umgesetzt und wird es nicht. Das Präfix ist kein einzelner String (die Controller bauen `'/intern?'`-Weiterleitungen selbst, die API-Pfade sind eigene Literale), Routen werden in `boot()` registriert, bevor Einstellungen verlässlich lesbar sind, und ein Tippfehler würde die gesamte Telefonannahme mit 404 beantworten, ohne Weg zurück.
 
 ## Sprachdateien
 

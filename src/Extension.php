@@ -31,15 +31,21 @@ use Wagnersnetz\ReservationControl\Theme\NullGuestCount;
 use Wagnersnetz\ReservationControl\Theme\OrangeGuestCount;
 
 /**
- * Local adjustments to the reservation form:
+ * Reservation control for TastyIgniter:
  *
- * 1. The telephone number is a required field. Igniter\Orange\Livewire\Booking
- *    and its BookingForm are `final`, so they cannot be subclassed. The rules
- *    come from BookingForm::rules() and only take effect when the validator is
+ * 1. Time slots follow the opening hours, from a larger party on they no longer
+ *    do - see LargePartyBookingManager. Which guest count counts is answered by
+ *    the bound GuestCountResolver; this works with any theme that binds one.
+ *    The Orange theme's resolver is bound when that theme is installed.
+ * 2. Internal phone-intake pages and a JSON API under /intern, gated by an IP
+ *    allow-list (InternalNetworkOnly), plus closure notes and blocked days.
+ * 3. Orange theme only: the telephone number of the public booking form can be
+ *    made required and pattern-checked. Igniter\Orange\Livewire\Booking and
+ *    its BookingForm are `final`, so they cannot be subclassed. The rules come
+ *    from BookingForm::rules() and only take effect when the validator is
  *    created - hence the resolver, which tightens exactly this one rule as soon
- *    as it recognises the rule set of the booking form.
- * 2. Time slots follow the opening hours, from a larger party on they no longer
- *    do - see LargePartyBookingManager.
+ *    as it recognises the rule set of the booking form. Other themes are left
+ *    untouched.
  */
 class Extension extends BaseExtension
 {

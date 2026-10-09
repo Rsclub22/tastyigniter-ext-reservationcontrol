@@ -18,7 +18,7 @@
 - `"type": "tastyigniter-package"` mit `extra."tastyigniter-extension"` — kanonische Form laut Generator-Stub.
 - Code vollständig englisch, **einschließlich Kommentare**. Sprachdateien `en` und `de`, beide vollständig.
 - Jede neue Einstellung hat als Vorgabe exakt den heute fest verdrahteten Wert.
-- URL-Pfade und Routennamen-Suffixe bleiben erhalten; nur das Präfix wird einstellbar.
+- URL-Pfade und Routennamen-Suffixe bleiben erhalten. (Ein einstellbares Präfix `internal_route_prefix` war vorgesehen und wurde gestrichen: das Präfix ist kein einzelner String — Controller bauen `'/intern?'`-Weiterleitungen selbst, die API-Pfade sind eigene Literale —, Routen entstehen in `boot()` vor verlässlich lesbaren Einstellungen, und ein Tippfehler würde die Telefonannahme komplett mit 404 beantworten.)
 - Keine `*.bak-*`-Dateien im Repo.
 
 ## Review Focus
