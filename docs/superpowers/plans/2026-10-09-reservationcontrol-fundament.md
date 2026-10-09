@@ -744,12 +744,12 @@ git commit -m "Read large-party rules from settings, keeping today's values as d
 ### Task 7: Die übrigen Einstellungen
 
 **Files:**
-- Modify: `src/TableAllocator.php:37,53,104`, `src/Rooms.php:23`, `src/DayData.php:26,204`, `src/DailySheet.php:26`, `src/Http/Middleware/InternalNetworkOnly.php:27`, `src/Extension.php:43,67,73,93,98,127-130,235`, `resources/models/settings.php`, beide Sprachdateien
+- Modify: `src/TableAllocator.php:37,53,104`, `src/Rooms.php:23`, `src/DayData.php:26,204`, `src/DailySheet.php:26`, `src/Http/Middleware/InternalNetworkOnly.php:27`, `src/Extension.php:67,73,93,98,127-130,186,235`, `resources/models/settings.php`, beide Sprachdateien
 - Create: `tests/SettingsCoverageTest.php`
 
 **Interfaces:**
 - Consumes: `Settings::get()`
-- Produces: ersetzte Konstanten werden zu statischen Lesern nach dem Muster aus Task 6. Öffentlich neu: `DayData::splitTime(int $locationId): string`, `TableAllocator::turnoverBufferMinutes(): int`, `Rooms::areaName(): string`, `DailySheet::maxRangeDays(): int`, `InternalNetworkOnly::allowedNetworks(): array`. Der Standortparameter an `splitTime()` dient der Lesbarkeit am Aufrufer und der Prüfbarkeit von Review Focus 5 — die Einstellung ist und bleibt global.
+- Produces: ersetzte Konstanten werden zu statischen Lesern nach dem Muster aus Task 6. Öffentlich neu: `DayData::splitTime(int $locationId): string`, `TableAllocator::turnoverBufferMinutes(): int`, `Rooms::areaName(): string`, `DailySheet::maxRangeDays(): int`, `InternalNetworkOnly::allowedNetworks(): array`, `TableAllocator::maxTablesPerReservation(): int` (gelesen an `Extension.php:186`). Der Standortparameter an `splitTime()` dient der Lesbarkeit am Aufrufer und der Prüfbarkeit von Review Focus 5 — die Einstellung ist und bleibt global.
 
 - [ ] **Step 1: Den fehlschlagenden Test schreiben**
 
@@ -760,29 +760,42 @@ declare(strict_types=1);
 
 use Rsclub22\ReservationControl\Models\Settings;
 
-it('defaults every setting to the previously hardcoded value', function(string $key, mixed $expected): void {
-    expect(Settings::get($key, $expected))->toBe($expected);
-})->with([
-    ['turnover_buffer_minutes', 0],
-    ['count_extra_capacity', true],
-    ['max_tables_per_reservation', 1],
-    ['only_enabled_tables', true],
-    ['internal_route_prefix', 'intern'],
-    ['internal_booking_horizon_days', 365],
-    ['internal_allow_same_day', true],
-    ['rooms_area_name', 'Räume'],
-    ['split_time', '15:00'],
-    ['max_print_range_days', 92],
-    ['max_length_first_name', 48],
-    ['max_length_last_name', 48],
-    ['max_length_email', 96],
-    ['max_length_telephone', 40],
-    ['max_length_comment', 520],
-    ['require_phone_on_public_form', true],
-    ['apply_max_guests_online', false],
-    ['allow_online_on_blocked_default', false],
-    ['cutoff_hours_before_closing', 0],
-]);
+use Rsclub22\ReservationControl\DailySheet;
+use Rsclub22\ReservationControl\DayData;
+use Rsclub22\ReservationControl\Http\Middleware\InternalNetworkOnly;
+use Rsclub22\ReservationControl\Rooms;
+use Rsclub22\ReservationControl\TableAllocator;
+
+it('defaults every reader to the previously hardcoded value', function(): void {
+    expect(TableAllocator::turnoverBufferMinutes())->toBe(0)
+        ->and(TableAllocator::maxTablesPerReservation())->toBe(1)
+        ->and(Rooms::areaName())->toBe('Räume')
+        ->and(DailySheet::maxRangeDays())->toBe(92)
+        ->and(DayData::splitTime(locationId: 1))->toBe('15:00')
+        ->and(InternalNetworkOnly::allowedNetworks())->not->toBeEmpty();
+});
+
+it('honours a configured value', function(): void {
+    Settings::set('turnover_buffer_minutes', 30);
+    expect(TableAllocator::turnoverBufferMinutes())->toBe(30);
+});
+
+it('falls back when the stored value is nonsense', function(): void {
+    Settings::set('turnover_buffer_minutes', -10);
+    Settings::set('max_print_range_days', 0);
+
+    expect(TableAllocator::turnoverBufferMinutes())->toBe(0)
+        ->and(DailySheet::maxRangeDays())->toBe(92);
+});
+
+it('declares the settings whose behaviour arrives in a later plan', function(): void {
+    $config = require __DIR__.'/../resources/models/settings.php';
+
+    expect(array_keys($config['form']['fields']))
+        ->toContain('cutoff_hours_before_closing')
+        ->toContain('apply_max_guests_online')
+        ->toContain('allow_online_on_blocked_default');
+});
 
 // Review Focus 5: Einstellungen sind global, Standorte nicht
 it('applies one global setting to every location', function(): void {
