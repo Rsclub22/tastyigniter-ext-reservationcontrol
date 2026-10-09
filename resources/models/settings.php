@@ -160,9 +160,9 @@ return [
                 'type' => 'textarea',
                 'default' => implode("\n", InternalNetworkOnly::DEFAULT_ALLOWED),
             ],
-            'cutoff_hours_before_closing' => [
-                'label' => 'lang:reservationcontrol::default.label_cutoff_hours_before_closing',
-                'comment' => 'lang:reservationcontrol::default.help_cutoff_hours_before_closing',
+            'cutoff_minutes_before_closing' => [
+                'label' => 'lang:reservationcontrol::default.label_cutoff_minutes_before_closing',
+                'comment' => 'lang:reservationcontrol::default.help_cutoff_minutes_before_closing',
                 'type' => 'number',
                 'default' => 0,
             ],

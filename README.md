@@ -107,12 +107,13 @@ a Livewire render listener to any component that has public `date` and `guest` p
 | Public form (Orange) | telephone required, telephone pattern, recognising fields |
 | Mail | Reply-To address and name |
 | Security | admin login limit, trusted proxies, internal networks |
-| Online booking | cut-off hours before closing², apply guest limit online³ |
+| Online booking | cut-off minutes before closing², apply guest limit online³ |
 
 ¹ Stored but without effect yet.
 
-² Time slots *less than* N hours before closing are closed online; a slot exactly N hours
-before closing stays bookable. 0 turns it off. Not applied to large parties or phone intake.
+² Time slots *less than* N minutes before closing are closed online (use it when the kitchen
+closes before the venue); a slot exactly N minutes before closing stays bookable. 0 (default)
+turns it off; the largest value is 1440, anything above counts as unset. Not applied to large parties or phone intake.
 
 ³ The cap from a closure note (`max N PAX`); a booking that exactly reaches the cap still fits.
 Not applied to large parties or phone intake.

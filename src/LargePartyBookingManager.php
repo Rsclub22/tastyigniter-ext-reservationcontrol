@@ -112,21 +112,22 @@ class LargePartyBookingManager extends BookingManager
      */
     private function onlineLimited(Collection $timeslots, Carbon $date, int $guests): array
     {
-        $cutoffHours = SettingValue::int('cutoff_hours_before_closing', 0, 0);
+        // 1440 = one day; a larger value is a typo and counts as unset.
+        $cutoffMinutes = SettingValue::int('cutoff_minutes_before_closing', 0, 0, 1440);
         $applyCap = SettingValue::flag('apply_max_guests_online', false);
 
-        if ($cutoffHours === 0 && ! $applyCap) {
+        if ($cutoffMinutes === 0 && ! $applyCap) {
             return [];
         }
 
         $cutoffFrom = null;
-        if ($cutoffHours > 0 && ($hours = ClosureNotes::openingHours($date)) !== null) {
+        if ($cutoffMinutes > 0 && ($hours = ClosureNotes::openingHours($date)) !== null) {
             $closing = $date->copy()->setTimeFromTimeString($hours[1]);
             // Closing after midnight: 18:00 - 01:00 closes on the next day.
             if ($hours[1] <= $hours[0]) {
                 $closing->addDay();
             }
-            $cutoffFrom = $closing->subHours($cutoffHours);
+            $cutoffFrom = $closing->subMinutes($cutoffMinutes);
         }
 
         $maxPax = null;

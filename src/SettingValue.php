@@ -32,8 +32,8 @@ final class SettingValue
         }
     }
 
-    /** A whole number of at least $min, written as int or as digits only. */
-    public static function int(string $key, int $default, int $min = 1): int
+    /** A whole number from $min to $max, written as int or as digits only; anything else gives $default. */
+    public static function int(string $key, int $default, int $min = 1, int $max = 999_999_999): int
     {
         $value = self::stored($key);
 
@@ -41,7 +41,7 @@ final class SettingValue
             $value = (int) $value;
         }
 
-        return is_int($value) && $value >= $min && $value <= 999_999_999 ? $value : $default;
+        return is_int($value) && $value >= $min && $value <= min($max, 999_999_999) ? $value : $default;
     }
 
     public static function string(string $key, string $default): string

@@ -154,9 +154,9 @@ it('declares the settings whose behaviour arrives in a later plan', function ():
     $fields = $config['form']['fields'];
 
     expect(array_keys($fields))
-        ->toContain('cutoff_hours_before_closing')
+        ->toContain('cutoff_minutes_before_closing')
         ->toContain('apply_max_guests_online')
-        ->and($fields['cutoff_hours_before_closing']['default'])->toBe(0)
+        ->and($fields['cutoff_minutes_before_closing']['default'])->toBe(0)
         ->and($fields['apply_max_guests_online']['default'])->toBeFalse()
         ->and($fields)->not->toHaveKey('allow_online_on_blocked_default');
 });

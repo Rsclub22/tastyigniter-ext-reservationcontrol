@@ -11,7 +11,7 @@
 - English and German language files.
 - Large-party detection through the `GuestCountResolver` contract; the Orange theme's
   resolver is bound automatically.
-- `cutoff_hours_before_closing` now works: online, time slots less than N hours before the
+- `cutoff_minutes_before_closing` now works: online, time slots less than N minutes before the
   day's closing time count as fully booked. Not applied to large parties or to phone
   intake. 0 (default) means no cut-off.
 - `apply_max_guests_online` now works: the guest cap of a closure note (`max N PAX`, also
@@ -33,6 +33,11 @@
 
 ### Changed
 
+- The online cut-off is now in minutes: `cutoff_hours_before_closing` is renamed to
+  `cutoff_minutes_before_closing` (0 to 1440; larger values count as unset). The old key is
+  deliberately **not** read and nothing is converted - a stored `1` would silently turn one hour
+  into one minute. An installation that set the old value must set the new one. Meant for a
+  kitchen that closes before the venue does.
 - Blocked days are stored as `{"grund": ..., "online": ..., "hinweis": ...}` per date. Existing plain-string
   entries are still read and keep blocking online booking; nothing needs migrating.
 - The unused global setting `allow_online_on_blocked_default` is removed (it never had an

@@ -101,21 +101,43 @@ it('changes nothing at the default cut-off of 0', function (): void {
     expect(fullyBooked(limitManager(2), 2, ['19:30', '21:00', '21:30']))->toBe([]);
 });
 
-it('closes the slots less than N hours before closing online, and only those', function (): void {
-    limitSetting('cutoff_hours_before_closing', 2);
+it('closes the slots less than N minutes before closing online, and only those', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 120);
 
-    // Closing is 22:00: 20:00 is exactly two hours before and stays bookable.
+    // Closing is 22:00: 20:00 is exactly 120 minutes before and stays bookable.
     expect(fullyBooked(limitManager(2), 2, ['19:30', '20:00', '20:30', '21:30']))->toBe(['20:30', '21:30']);
 });
 
+it('works in minutes: a kitchen closing 30 minutes early keeps the exact boundary bookable', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 30);
+
+    // Closing is 22:00: 21:30 is exactly 30 minutes before and stays bookable.
+    expect(fullyBooked(limitManager(2), 2, ['21:00', '21:30', '21:45']))->toBe(['21:45']);
+});
+
+it('ignores the old hours key: a stored hours value must not be read as minutes', function (): void {
+    // 30 rather than the live 1: with 1 minute no half-hourly slot is affected, so a regression would go unseen.
+    limitSetting('cutoff_hours_before_closing', 30);
+
+    expect(fullyBooked(limitManager(2), 2, ['20:30', '21:30', '21:45']))->toBe([]);
+});
+
+it('accepts a cut-off of one day and treats anything larger as unset', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 1440);
+    expect(fullyBooked(limitManager(2), 2, ['11:00', '21:30']))->toBe(['11:00', '21:30']);
+
+    limitSetting('cutoff_minutes_before_closing', 1441);
+    expect(fullyBooked(limitManager(2), 2, ['11:00', '21:30']))->toBe([]);
+});
+
 it('leaves large parties alone with the cut-off on', function (): void {
-    limitSetting('cutoff_hours_before_closing', 2);
+    limitSetting('cutoff_minutes_before_closing', 120);
 
     expect(fullyBooked(limitManager(25), 25, ['20:30', '21:30']))->toBe([]);
 });
 
 it('does not apply the cut-off on the internal path', function (): void {
-    limitSetting('cutoff_hours_before_closing', 2);
+    limitSetting('cutoff_minutes_before_closing', 120);
 
     expect(fullyBooked(limitManager(2, internal: true), 2, ['20:30', '21:30']))->toBe([]);
 });
