@@ -17,6 +17,7 @@ return [
     'error_no_active_location' => 'Kein aktiver Standort vorhanden.',
     'error_max_pax' => 'Um :time Uhr sind bereits :already von :max Plätzen vergeben – :guests weitere passen nicht mehr. Frei sind noch :free.',
     'error_day_has_reservations' => '{1} Am :date liegt bereits :count Reservierung. Erst absagen, dann sperren.|[2,*] Am :date liegen bereits :count Reservierungen. Erst absagen, dann sperren.',
+    'error_name_required' => 'Bitte mindestens Vor- oder Nachname angeben.',
     'notice_day_blocked' => ':date ist gesperrt – an diesem Tag sind keine Reservierungen mehr möglich.',
     'notice_day_unblocked' => 'Sperre für :date aufgehoben.',
 

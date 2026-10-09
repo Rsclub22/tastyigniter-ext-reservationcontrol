@@ -219,7 +219,9 @@ class InternalBookingController extends Controller
 
     public function unblock(Request $request): RedirectResponse
     {
-        $data = $request->validate(['datum' => ['required', 'date']], [], ['datum' => 'Datum']);
+        $data = $request->validate(['datum' => ['required', 'date']], [], [
+            'datum' => __('reservationcontrol::default.attribute_date'),
+        ]);
         $date = Carbon::parse($data['datum'])->toDateString();
 
         BlockedDates::unblock($date);

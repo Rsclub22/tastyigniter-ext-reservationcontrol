@@ -131,7 +131,7 @@ class Extension extends BaseExtension
             $holder->rules['email'] = ['nullable', 'email:filter', 'max:96'];
             $holder->rules['telephone'] = ['nullable', 'string', 'max:40'];
 
-            $holder->messages['last_name.required_without_all'] = 'Bitte mindestens Vor- oder Nachname angeben.';
+            $holder->messages['last_name.required_without_all'] = __('reservationcontrol::default.error_name_required');
         });
 
         // The relaxed rules above let first name, last name and e-mail through

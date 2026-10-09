@@ -28,14 +28,65 @@ it('carries the same keys in english and german', function (): void {
     expect($de)->toEqualCanonicalizing($en);
 });
 
-it('keeps the placeholders identical in both languages', function (): void {
+it('keeps placeholders, plural syntax and embedded markup identical in both languages', function (): void {
     $en = Arr::dot(require __DIR__.'/../resources/lang/en/default.php');
     $de = Arr::dot(require __DIR__.'/../resources/lang/de/default.php');
 
-    foreach ($en as $key => $text) {
-        preg_match_all('/:[a-z_]+/', $text, $enMatches);
-        preg_match_all('/:[a-z_]+/', $de[$key], $deMatches);
+    $placeholders = function (string $text): array {
+        preg_match_all('/:[A-Za-z_][A-Za-z0-9_]*/', $text, $m);
+        $found = array_unique($m[0]);
+        sort($found);
 
-        expect(array_unique($deMatches[0]))->toEqualCanonicalizing(array_unique($enMatches[0]), $key);
+        return $found;
+    };
+
+    // The plural selector: "{1} ...|[2,*] ..." must have the same segments.
+    $plural = function (string $text): array {
+        preg_match_all('/(?:^|\|)(\{\d+\}|\[[^\]]*\])/', $text, $m);
+
+        return $m[1];
+    };
+
+    // Embedded HTML tags (the hint_* strings are rendered unescaped).
+    $tags = function (string $text): array {
+        preg_match_all('/<\/?[a-z][^>]*>/i', $text, $m);
+
+        return $m[0];
+    };
+
+    foreach ($en as $key => $text) {
+        expect($placeholders($de[$key]))->toBe($placeholders($text), "placeholders differ in $key");
+        expect($plural($de[$key]))->toBe($plural($text), "plural syntax differs in $key");
+        expect($tags($de[$key]))->toBe($tags($text), "embedded markup differs in $key");
     }
+});
+
+it('does not leave placeholders or markup in strings that must be plain', function (): void {
+    $en = Arr::dot(require __DIR__.'/../resources/lang/en/default.php');
+
+    foreach ($en as $key => $text) {
+        if (! str_starts_with($key, 'hint_')) {
+            expect($text)->not->toContain('<strong>', "$key carries markup but is not a hint_* string");
+        }
+    }
+});
+
+it('lists german entries identical to the english ones for a human to check', function (): void {
+    $en = Arr::dot(require __DIR__.'/../resources/lang/en/default.php');
+    $de = Arr::dot(require __DIR__.'/../resources/lang/de/default.php');
+
+    // Identical pairs can be legitimate (a name, a unit); this only keeps them
+    // visible. Add a key here once a human has confirmed it.
+    $confirmed = [
+        'label_optional', 'col_name', 'col_persons', 'max_pax_entry', 'console_field_name', 'console_field_status',
+        'console_col_name', 'console_col_status', 'console_col_persons', 'console_ask_name', 'console_ask_persons',
+        'console_ask_status', 'console_import_run', 'console_reservation_line',
+    ];
+
+    $identical = array_values(array_diff(
+        array_keys(array_filter($en, fn (string $text, string $key): bool => $de[$key] === $text, ARRAY_FILTER_USE_BOTH)),
+        $confirmed,
+    ));
+
+    expect($identical)->toBe([], 'identical en/de entries, check for untranslated copies: '.implode(', ', $identical));
 });
