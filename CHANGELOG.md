@@ -20,6 +20,11 @@
   `/intern/sperren`, optional boolean `online` on `POST /api/intern/sperrtage`; both default
   to off). Such days still show as special days on the internal pages and the printout.
 
+- A closure note containing `online buchbar` keeps its time window open for online booking
+  (it still appears on the daily sheet and in phone intake, and its guest cap still applies).
+  "nicht online buchbar", "online nicht mehr buchbar", "keine online" and "ganztägig" always
+  keep it closed.
+
 ### Changed
 
 - Blocked days are stored as `{"grund": ..., "online": ...}` per date. Existing plain-string

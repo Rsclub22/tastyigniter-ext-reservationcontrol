@@ -171,7 +171,9 @@ class LargePartyBookingManager extends BookingManager
         // A note beside the opening hours does not fall under this: its times
         // are already locked by the occupied tables, and the lunch service of
         // the same day stays bookable.
-        if (ClosureNotes::allDay(ClosureNotes::onDate($date), $date)->isNotEmpty()) {
+        if (ClosureNotes::allDay(ClosureNotes::onDate($date), $date)
+            ->reject(fn ($note): bool => ClosureNotes::isOnlineOpen($note))
+            ->isNotEmpty()) {
             return $timeslots
                 ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i'))->toDateTimeString())
                 ->values()

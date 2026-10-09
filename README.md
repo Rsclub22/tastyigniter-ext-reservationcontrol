@@ -64,6 +64,18 @@ php artisan igniter:up
 Then open *Manage → Settings → Reservation Control*, set the networks and proxies for your
 setup, and turn TastyIgniter's automatic table assignment off.
 
+## Closure note keywords
+
+A closure note is a reservation with more guests than the house seats; its comment text is
+read for a few German keywords (this parser is German-only on purpose):
+
+- `max 60 PAX`, optionally per time (`11 Uhr max 60 PAX, 13 Uhr max 80 PAX`): guest cap.
+- `ganztägig` (also `ganzer Tag`, `keine online`, `online nicht mehr buchbar`): the note
+  closes the whole day for online booking.
+- `online buchbar`: the note's time window stays open for online booking, e.g.
+  `Märchenabend, online buchbar`. Any negation in front of it (`nicht online buchbar`) or any
+  all-day wording in the same note keeps the window closed.
+
 ## Settings overview
 
 | Group | Settings |

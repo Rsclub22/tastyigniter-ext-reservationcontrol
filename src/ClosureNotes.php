@@ -64,6 +64,25 @@ class ClosureNotes
      */
     private const string ALL_DAY_PATTERN = '/ganzt[\x{00e4}a]gig|ganze[rn]\s+tag|online[^.!]{0,40}nicht\s*(?:mehr\s*)?(?:verf[\x{00fc}u]gbar|m[\x{00f6}o]glich|buchbar)|keine\s+online/iu';
 
+    /**
+     * Opt-in: the note's time window stays open for online booking ("Märchenabend,
+     * online buchbar"). Everything else about the note stays as it is.
+     *
+     * A bare "online buchbar" also sits inside "nicht online buchbar" and "nicht
+     * mehr online buchbar", which mean the opposite. So this pattern alone is
+     * never enough: isOnlineOpen() asks ALL_DAY_PATTERN first (a note that
+     * closes online booking always wins), and then refuses any occurrence with
+     * a negation earlier in the same clause (NEGATION_PATTERN).
+     *
+     * German only, like every pattern here: this free-text parser is German by
+     * design and is to be replaced by real fields. Do not internationalise the
+     * regexes.
+     */
+    private const string ONLINE_OPEN_PATTERN = '/\bonline\s+(?:wieder\s+)?buchbar\b/iu';
+
+    /** A negation word; looked for in the clause in front of an ONLINE_OPEN_PATTERN match. */
+    private const string NEGATION_PATTERN = '/\b(?:nicht|kein\w*)\b/iu';
+
     /** Opening hours per weekday, fetched once per request. */
     private static ?array $openingHours = null;
 
@@ -157,6 +176,10 @@ class ClosureNotes
     public static function isTakenAt(iterable $notes, Carbon $at): bool
     {
         foreach ($notes as $note) {
+            if (self::isOnlineOpen($note)) {
+                continue;
+            }
+
             $start = $at->copy()->setTimeFromTimeString(
                 Carbon::parse($note->reserve_time)->format('H:i'),
             );
@@ -168,6 +191,38 @@ class ClosureNotes
         }
 
         return false;
+    }
+
+    /**
+     * Does the text explicitly keep this note's window open for online booking?
+     *
+     * Errs towards closed: a note that closes online booking by its wording
+     * wins over the keyword, and so does a single negated occurrence.
+     */
+    public static function isOnlineOpen(Reservation $note): bool
+    {
+        $text = (string) $note->comment;
+
+        if (preg_match(self::ALL_DAY_PATTERN, $text)) {
+            return false;
+        }
+
+        if (! preg_match_all(self::ONLINE_OPEN_PATTERN, $text, $matches, PREG_OFFSET_CAPTURE)) {
+            return false;
+        }
+
+        foreach ($matches[0] as [, $offset]) {
+            // The clause in front of the keyword: back to the last separator.
+            $before = substr($text, 0, (int) $offset);
+            $clause = preg_split('/[.!?;,\n]/u', $before);
+            $clause = $clause === false ? $before : (string) end($clause);
+
+            if (preg_match(self::NEGATION_PATTERN, $clause)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** The notes that claim the whole day. */

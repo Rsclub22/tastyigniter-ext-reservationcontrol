@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Carbon\Carbon;
 use Igniter\Local\Classes\WorkingSchedule;
 use Igniter\Local\Models\Location;
+use Igniter\Reservation\Models\Reservation;
 use Illuminate\Support\Facades\DB;
 use Wagnersnetz\ReservationControl\ClosureNotes;
 use Wagnersnetz\ReservationControl\LargePartyBookingManager;
@@ -70,7 +71,7 @@ function fullyBooked(LargePartyBookingManager $manager, int $guests, array $time
  * guests at 19:00, and a closure note at 23:00 - after closing, so it does not
  * claim the whole day.
  */
-function noteWithCapAndEightGuests(string $noteText = 'Geschlossene Gesellschaft, max 10 PAX', bool $busyAtEight = false): void
+function noteWithCapAndEightGuests(string $noteText = 'Geschlossene Gesellschaft, max 10 PAX', bool $busyAtEight = false, string $noteTime = '23:00:00'): void
 {
     $areaId = DB::table('dining_areas')->insertGetId(['location_id' => 2, 'name' => 'Gastraum']);
     $tableId = DB::table('dining_tables')->insertGetId([
@@ -78,7 +79,7 @@ function noteWithCapAndEightGuests(string $noteText = 'Geschlossene Gesellschaft
         'max_capacity' => 30, 'is_combo' => 0, 'is_enabled' => 1,
     ]);
 
-    $rows = [[8, '19:00:00', 'Meier'], [999, '23:00:00', 'Vermerk']];
+    $rows = [[8, '19:00:00', 'Meier'], [999, $noteTime, 'Vermerk']];
     if ($busyAtEight) {
         $rows[] = [20, '20:00:00', 'Voll'];
     }
@@ -151,4 +152,52 @@ it('keeps the guest cap a hint on the internal path and for large parties', func
 
     expect(fullyBooked(limitManager(5, internal: true), 5, ['19:00']))->toBe([])
         ->and(fullyBooked(limitManager(25), 25, ['19:00']))->toBe([]);
+});
+
+// ---- Feature 4: a closure note opting back in --------------------------------------
+
+it('opens a note window online only for an unnegated "online buchbar"', function (string $text, bool $open): void {
+    $note = new Reservation(['comment' => $text]);
+
+    expect(ClosureNotes::isOnlineOpen($note))->toBe($open);
+})->with([
+    'plain keyword' => ['Märchenabend, online buchbar', true],
+    'keyword and a cap' => ['Märchenabend, online buchbar, max 40 PAX', true],
+    'negation of something else, other clause' => ['Nicht ganz voll, online buchbar', true],
+    'nicht before' => ['Märchenabend, nicht online buchbar', false],
+    'nicht mehr before' => ['Märchenabend nicht mehr online buchbar', false],
+    'negation after online' => ['Märchenabend, online nicht mehr buchbar', false],
+    'keine online' => ['Märchenabend, keine online Buchung, online buchbar', false],
+    'together with ganztägig' => ['Ganztägig Märchenabend, online buchbar', false],
+    'one negated occurrence among several' => ['online buchbar. Abends nicht online buchbar', false],
+    'no keyword' => ['Märchenabend', false],
+]);
+
+it('keeps the window of an opted-in note out of the taken slots, and keeps it taken without the keyword', function (): void {
+    noteWithCapAndEightGuests('Märchenabend, online buchbar');
+    expect(fullyBooked(limitManager(2), 2, ['23:00']))->toBe([]);
+
+    DB::table('reservations')->where('guest_num', 999)->update(['comment' => 'Märchenabend']);
+    expect(fullyBooked(limitManager(2), 2, ['23:00']))->toBe(['23:00']);
+});
+
+it('lets an opted-in note inside the opening hours leave the day bookable, but not a plain one', function (): void {
+    noteWithCapAndEightGuests('Märchenabend, online buchbar', noteTime: '18:00:00');
+    expect(fullyBooked(limitManager(2), 2, ['12:00', '20:30']))->toBe([]);
+
+    DB::table('reservations')->where('guest_num', 999)->update(['comment' => 'Märchenabend']);
+    expect(fullyBooked(limitManager(2), 2, ['12:00', '20:30']))->toBe(['12:00', '20:30']);
+});
+
+it('still applies the guest cap of an opted-in note online', function (): void {
+    noteWithCapAndEightGuests('Märchenabend, online buchbar, max 10 PAX', noteTime: '18:00:00');
+    limitSetting('apply_max_guests_online', true);
+
+    expect(fullyBooked(limitManager(3), 3, ['19:00', '20:00']))->toBe(['19:00']);
+});
+
+it('keeps a note that says "nicht online buchbar" blocking its window', function (): void {
+    noteWithCapAndEightGuests('Märchenabend, nicht online buchbar');
+
+    expect(fullyBooked(limitManager(2), 2, ['23:00']))->toBe(['23:00']);
 });
