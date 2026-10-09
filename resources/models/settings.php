@@ -172,12 +172,6 @@ return [
                 'type' => 'switch',
                 'default' => false,
             ],
-            'allow_online_on_blocked_default' => [
-                'label' => 'lang:reservationcontrol::default.label_allow_online_on_blocked_default',
-                'comment' => 'lang:reservationcontrol::default.help_allow_online_on_blocked_default',
-                'type' => 'switch',
-                'default' => false,
-            ],
         ],
     ],
 ];

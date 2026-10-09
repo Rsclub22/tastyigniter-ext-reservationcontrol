@@ -156,10 +156,9 @@ it('declares the settings whose behaviour arrives in a later plan', function ():
     expect(array_keys($fields))
         ->toContain('cutoff_hours_before_closing')
         ->toContain('apply_max_guests_online')
-        ->toContain('allow_online_on_blocked_default')
         ->and($fields['cutoff_hours_before_closing']['default'])->toBe(0)
         ->and($fields['apply_max_guests_online']['default'])->toBeFalse()
-        ->and($fields['allow_online_on_blocked_default']['default'])->toBeFalse();
+        ->and($fields)->not->toHaveKey('allow_online_on_blocked_default');
 });
 
 it('has a form default that equals the reader default for the fields compared', function (): void {
