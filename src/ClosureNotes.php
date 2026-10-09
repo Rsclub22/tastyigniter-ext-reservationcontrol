@@ -10,6 +10,7 @@ use Igniter\Reservation\Models\DiningTable;
 use Igniter\Reservation\Models\Reservation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Closure notes: pseudo reservations that lock time against online booking by
@@ -87,6 +88,16 @@ class ClosureNotes
      * the line, so a clause on the next line is never swallowed.
      */
     private const string GUEST_TEXT_PATTERN = '/\bonline\s+(?:wieder\s+)?buchbar\b[ \t]*:[ \t]*([^\r\n]*)/iu';
+
+    /**
+     * Times that name an event slot in an opted-in note: "17 Uhr", "17:30 Uhr"
+     * (as TIME_PATTERN) and also a bare "17:30" with a colon. Dots are not
+     * accepted without "Uhr", "10.12" would read as a date. "MAX 30 PAX" and
+     * "2 Gänge" carry neither "Uhr" nor a colon time and therefore yield nothing.
+     *
+     * German only like the patterns above: the free text is German by design.
+     */
+    private const string EVENT_TIME_PATTERN = '/(?<![\d:.])(\d{1,2})(?:[:.](\d{2}))?\s*Uhr\b|(?<![\d:.])(\d{1,2}):(\d{2})(?![\d:.])/iu';
 
     /** A negation word; looked for in the clause in front of an ONLINE_OPEN_PATTERN match. */
     private const string NEGATION_PATTERN = '/\b(?:nicht|kein\w*)\b/iu';
@@ -476,5 +487,159 @@ class ClosureNotes
         ksort($plan);
 
         return $plan;
+    }
+
+    /**
+     * Notes from today on, for building the schedule. Empty on any failure:
+     * this runs inside every public booking page, so a broken query must not
+     * take the page down.
+     */
+    public static function upcoming(): Collection
+    {
+        try {
+            $houseCapacity = self::houseCapacity();
+
+            if ($houseCapacity <= 0) {
+                return collect();
+            }
+
+            return Reservation::query()
+                ->whereDate('reserve_date', '>=', Carbon::today()->toDateString())
+                ->where('status_id', '!=', (int) setting('canceled_reservation_status'))
+                ->where('guest_num', '>', $houseCapacity)
+                ->orderBy('reserve_time')
+                ->get();
+        } catch (Throwable) {
+            return collect();
+        }
+    }
+
+    /**
+     * What a note offers as event slots, given the normal opening ranges of its
+     * day (pairs of HH:MM, several allowed, may be empty on a closed day).
+     *
+     * The stored window is the envelope; the times in the text are slots inside
+     * it. Each runs to the next stated time or the end of the envelope. A time
+     * outside the envelope, or that is no clock time, opens nothing. The
+     * windows replace the day's hours when the envelope overlaps them, and are
+     * added when it does not.
+     *
+     * @param  array<int, array{0: string, 1: string}>  $normalRanges
+     */
+    public static function eventPlan(Reservation $note, array $normalRanges = []): EventPlan
+    {
+        $dropped = [];
+        $stated = [];
+
+        if (preg_match_all(self::EVENT_TIME_PATTERN, (string) $note->comment, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $m) {
+                // First alternative ("17 Uhr") fills groups 1-2, the bare colon form groups 3-4.
+                [$hour, $minute] = ($m[1] ?? '') !== ''
+                    ? [(int) $m[1], (int) ($m[2] ?? 0)]
+                    : [(int) ($m[3] ?? 0), (int) ($m[4] ?? 0)];
+                $time = sprintf('%02d:%02d', $hour, $minute);
+
+                if ($hour > 23 || $minute > 59) {
+                    $dropped[] = ['time' => $time, 'reason' => EventPlan::INVALID_TIME];
+
+                    continue;
+                }
+
+                $stated[] = $time;
+            }
+        }
+
+        $stated = array_values(array_unique($stated));
+        sort($stated);
+
+        if (! self::isOnlineOpen($note)) {
+            return new EventPlan(EventPlan::NOT_OPTED_IN, null, $stated, [], null, []);
+        }
+
+        $startMinutes = self::minutes(Carbon::parse($note->reserve_time)->format('H:i'));
+        $endMinutes = $startMinutes + max(0, (int) $note->duration);
+
+        // Empty, or running into the next day: no slot is derived from it.
+        if ($endMinutes <= $startMinutes || $endMinutes >= 1440) {
+            return new EventPlan(EventPlan::NO_ENVELOPE, null, $stated, [], null, $dropped);
+        }
+
+        $envelope = [self::clock($startMinutes), self::clock($endMinutes)];
+
+        $inside = [];
+        foreach ($stated as $time) {
+            $t = self::minutes($time);
+            if ($t >= $startMinutes && $t < $endMinutes) {
+                $inside[] = $t;
+            } else {
+                $dropped[] = ['time' => $time, 'reason' => EventPlan::OUTSIDE_ENVELOPE];
+            }
+        }
+
+        if ($inside === []) {
+            return new EventPlan(EventPlan::NO_TIME, $envelope, $stated, [], null, $dropped);
+        }
+
+        $busy = self::busySpans($normalRanges);
+        $replace = self::overlapsAny([$startMinutes, $endMinutes], $busy);
+
+        $windows = [];
+        foreach ($inside as $i => $from) {
+            $to = $inside[$i + 1] ?? $endMinutes;
+
+            $windows[] = [self::clock($from), self::clock($to)];
+        }
+
+        return new EventPlan(EventPlan::ACTIVE, $envelope, $stated, $windows, $replace ? EventPlan::REPLACE : EventPlan::ADD, $dropped);
+    }
+
+    /**
+     * Minute spans a range list occupies. An overnight range (18:00-01:00)
+     * occupies the evening and, as seen from this day, the early morning too.
+     *
+     * @param  array<int, array{0: string, 1: string}>  $ranges
+     * @return array<int, array{0: int, 1: int}>
+     */
+    public static function busySpans(array $ranges): array
+    {
+        $spans = [];
+        foreach ($ranges as [$from, $to]) {
+            $a = self::minutes($from);
+            $b = self::minutes($to);
+
+            if ($b > $a) {
+                $spans[] = [$a, $b];
+            } else {
+                $spans[] = [$a, 1440];
+                $spans[] = [0, $b];
+            }
+        }
+
+        return $spans;
+    }
+
+    /**
+     * @param  array{0: int, 1: int}  $span
+     * @param  array<int, array{0: int, 1: int}>  $others
+     */
+    public static function overlapsAny(array $span, array $others): bool
+    {
+        foreach ($others as [$a, $b]) {
+            if ($span[0] < $b && $span[1] > $a) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function minutes(string $time): int
+    {
+        return (int) substr($time, 0, 2) * 60 + (int) substr($time, 3, 2);
+    }
+
+    private static function clock(int $minutes): string
+    {
+        return sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
     }
 }
