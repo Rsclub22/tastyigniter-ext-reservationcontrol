@@ -10,20 +10,20 @@ use Symfony\Component\HttpFoundation\IpUtils;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Laesst nur Aufrufe aus dem lokalen Netz durch.
+ * Lets only calls from the local network through.
  *
- * Die Telefonannahme legt Reservierungen ohne jede Anmeldung an - sie darf
- * deshalb unter keinen Umstaenden aus dem Internet erreichbar sein. Drei Ebenen
- * sichern das ab:
- *   1. Caddy beantwortet /intern* auf der oeffentlichen Adresse mit 404.
- *   2. Der Container veroeffentlicht dafuer einen eigenen Port nur im LAN.
- *   3. Diese Middleware prueft zusaetzlich die tatsaechliche Absenderadresse.
+ * Phone intake creates reservations without any login at all - it must
+ * therefore under no circumstances be reachable from the internet. Three
+ * layers secure that:
+ *   1. Caddy answers /intern* on the public address with a 404.
+ *   2. The container publishes a port of its own for it, LAN only.
+ *   3. This middleware additionally checks the actual sender address.
  *
- * Punkt 3 ist die Rueckfallebene, falls jemand 1 oder 2 spaeter aendert.
+ * Point 3 is the fallback layer in case somebody changes 1 or 2 later on.
  */
 class InternalNetworkOnly
 {
-    /** Private Netze nach RFC 1918 plus Loopback und das VPN-Netz des Pi. */
+    /** Private networks per RFC 1918 plus loopback and the VPN network of the Pi. */
     private const array ALLOWED = [
         '127.0.0.1',
         '::1',
@@ -35,8 +35,8 @@ class InternalNetworkOnly
 
     public function handle(Request $request, Closure $next): Response
     {
-        // Vertraute Proxies sind gesetzt, ip() liefert daher die echte
-        // Absenderadresse und nicht die der Bridge.
+        // Trusted proxies are set, so ip() returns the real sender address and
+        // not the one of the bridge.
         if (! IpUtils::checkIp((string) $request->ip(), self::ALLOWED)) {
             abort(404);
         }

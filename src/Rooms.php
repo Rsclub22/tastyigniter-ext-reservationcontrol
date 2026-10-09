@@ -10,16 +10,21 @@ use Igniter\Reservation\Models\Reservation;
 use Illuminate\Support\Collection;
 
 /**
- * Raeume fuer groessere Gesellschaften (Scheune, Keller, Saal).
+ * Rooms for larger parties (barn, cellar, hall).
  *
- * Sie liegen als Tische im Bereich "Raeume" und sind bewusst is_enabled = 0.
- * Damit fallen sie aus whereIsReservable() heraus - also aus der automatischen
- * Tischzuweisung, aus der Belegungspruefung und aus dem oeffentlichen Formular.
- * Die manuelle Zuweisung schreibt dagegen direkt in reservation_tables und
- * kuemmert sich nicht um dieses Kennzeichen; genau das wird hier genutzt.
+ * They sit as tables in the dining area "Räume" and are deliberately
+ * is_enabled = 0. That drops them out of whereIsReservable() - and thus out of
+ * the automatic table assignment, out of the occupancy check and out of the
+ * public form. Manual assignment, by contrast, writes straight into
+ * reservation_tables and does not care about that flag; which is exactly what
+ * is used here.
  */
 class Rooms
 {
+    /**
+     * Name of the dining area in the database. German, because that is how the
+     * area is named in a running installation.
+     */
     public const string AREA = 'Räume';
 
     public static function all(): Collection
@@ -41,8 +46,8 @@ class Rooms
     }
 
     /**
-     * Belegung eines Raumes an einem Tag: Datum/Uhrzeit-Paare, zu denen er
-     * bereits vergeben ist, samt zugehoeriger Reservierung.
+     * Occupancy of a room on a day: the date/time pairs at which it is already
+     * taken, together with the reservation that takes it.
      */
     public static function reservationsOn(Carbon $date): Collection
     {
@@ -61,7 +66,7 @@ class Rooms
             ->get();
     }
 
-    /** Ist der Raum zum genannten Zeitpunkt frei? */
+    /** Is the room free at the given moment? */
     public static function isFreeAt(DiningTable $room, Carbon $at, Collection $reservations): bool
     {
         foreach ($reservations as $r) {

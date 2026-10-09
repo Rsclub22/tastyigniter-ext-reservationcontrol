@@ -8,28 +8,33 @@ use Carbon\Carbon;
 use Igniter\System\Models\Settings;
 
 /**
- * Einzelne gesperrte Tage (Ruhetag ausserhalb des Wochenrhythmus, Betriebsferien,
- * geschlossene Gesellschaft).
+ * Individual blocked days (a closing day outside the weekly rhythm, company
+ * holidays, a private function).
  *
- * TastyIgniter kennt Ausnahmen im Zeitplan bereits - WorkingSchedule::forDate()
- * prueft erst die Ausnahmen und faellt dann auf den Wochentag zurueck. Es gibt
- * dafuer aber weder eine Tabelle noch eine Oberflaeche. Die Daten liegen deshalb
- * als Einstellung; fuer eine Handvoll Termine im Jahr reicht das und erspart eine
- * eigene Migration.
+ * TastyIgniter already knows exceptions in the schedule -
+ * WorkingSchedule::forDate() checks the exceptions first and then falls back to
+ * the weekday. There is, however, neither a table nor an interface for them.
+ * The data therefore lives as a setting; for a handful of dates per year that
+ * is enough and it saves a migration of our own.
  */
 class BlockedDates
 {
+    /**
+     * The key under which live installations already store their blocked days.
+     * It keeps the old "reservetweaks" name on purpose - renaming it would
+     * silently drop the blocked days of every existing installation.
+     */
     private const string SETTING = 'reservetweaks_blocked_dates';
 
     private const string GROUP = 'prefs';
 
-    /** @return array<string, string> Datum (Y-m-d) => Grund */
+    /** @return array<string, string> date (Y-m-d) => reason */
     public static function all(): array
     {
-        // Bewusst JSON statt eines Arrays: Settings::set() serialisiert Arrays
-        // zwar, setzt aber die Spalte "serialized" nicht - beim Lesen kaeme dann
-        // eine Zeichenkette zurueck. Und ausdruecklich die Gruppe angeben, denn
-        // der setting()-Helfer liest nur "config".
+        // Deliberately JSON instead of an array: Settings::set() does serialise
+        // arrays, but it does not set the "serialized" column - reading would
+        // then return a string. And state the group explicitly, because the
+        // setting() helper only reads "config".
         $raw = Settings::get(self::SETTING, '', self::GROUP);
         if (! is_string($raw) || $raw === '') {
             return [];
@@ -40,11 +45,11 @@ class BlockedDates
         return is_array($dates) ? $dates : [];
     }
 
-    /** Nur heutige und kuenftige Sperren, aufsteigend sortiert. */
+    /** Only today's and future blocks, sorted ascending. */
     public static function upcoming(): array
     {
-        $heute = Carbon::today()->toDateString();
-        $dates = array_filter(self::all(), fn ($grund, $datum): bool => $datum >= $heute, ARRAY_FILTER_USE_BOTH);
+        $today = Carbon::today()->toDateString();
+        $dates = array_filter(self::all(), fn ($reason, $date): bool => $date >= $today, ARRAY_FILTER_USE_BOTH);
         ksort($dates);
 
         return $dates;
@@ -55,10 +60,10 @@ class BlockedDates
         return array_key_exists($date, self::all());
     }
 
-    public static function block(string $date, string $grund = ''): void
+    public static function block(string $date, string $reason = ''): void
     {
         $dates = self::all();
-        $dates[$date] = $grund;
+        $dates[$date] = $reason;
         self::store($dates);
     }
 
@@ -70,8 +75,8 @@ class BlockedDates
     }
 
     /**
-     * Form fuer WorkingSchedule::setExceptions(): ein leerer Zeitraum je Datum
-     * bedeutet "an diesem Tag geschlossen".
+     * The shape WorkingSchedule::setExceptions() expects: an empty period per
+     * date means "closed on this day".
      */
     public static function asScheduleExceptions(): array
     {
@@ -80,9 +85,9 @@ class BlockedDates
 
     private static function store(array $dates): void
     {
-        // Vergangenes mitnehmen, sonst waechst die Einstellung endlos.
-        $heute = Carbon::today()->toDateString();
-        $dates = array_filter($dates, fn ($grund, $datum): bool => $datum >= $heute, ARRAY_FILTER_USE_BOTH);
+        // Drop what is past, otherwise the setting grows without end.
+        $today = Carbon::today()->toDateString();
+        $dates = array_filter($dates, fn ($reason, $date): bool => $date >= $today, ARRAY_FILTER_USE_BOTH);
         ksort($dates);
 
         Settings::set(self::SETTING, json_encode($dates, JSON_UNESCAPED_UNICODE), self::GROUP);

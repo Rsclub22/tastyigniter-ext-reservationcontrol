@@ -7,9 +7,9 @@ namespace Wagnersnetz\ReservationControl;
 use Igniter\Orange\Livewire\Booking;
 
 /**
- * Hält die gerade laufende Booking-Komponente, damit der BookingManager die
- * eingegebene Gästezahl kennt. Der Manager bekommt sie sonst nirgends: er wird
- * als Singleton aufgelöst und makeTimeSlots() erhält nur ein Datum.
+ * Holds the currently running Booking component so that the BookingManager
+ * knows the guest count that was typed in. The manager gets it nowhere else: it
+ * is resolved as a singleton and makeTimeSlots() only receives a date.
  */
 class BookingContext
 {
@@ -28,8 +28,8 @@ class BookingContext
     }
 
     /**
-     * Wird bewusst erst beim Aufruf gelesen: Beim Merken der Komponente (boot)
-     * ist $guest noch nicht hydriert, beim Rendern der Zeitfenster schon.
+     * Deliberately read only on call: when the component is remembered (boot),
+     * $guest is not hydrated yet; when the time slots are rendered, it is.
      */
     public static function guestCount(): ?int
     {

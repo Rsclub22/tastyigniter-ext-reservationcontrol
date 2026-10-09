@@ -10,22 +10,21 @@ use Igniter\Reservation\Models\Reservation;
 use Illuminate\Support\Collection;
 
 /**
- * Tischvergabe: Einzeltisch zuerst, Kombination nur wenn noetig.
+ * Table assignment: a single table first, a combination only when needed.
  *
- * TastyIgniters eigene Vergabe taugt dafuer nicht:
- *   - whereIsReservable() laesst nur Wurzelelemente zu. Tisch 1, 2, 4 und 7
- *     haengen als Kinder an den Kombinationen und werden daher nie vergeben -
- *     zwei Gaeste bekommen die Zwoelfer-Kombination statt eines kleinen Tisches.
- *   - Eltern und Kinder sind bei der Verfuegbarkeit nicht verknuepft. Belegt man
- *     "Tisch 1/Tisch 2", gilt "Tisch 1" weiterhin als frei. Nachgemessen.
+ * TastyIgniter's own assignment is no good for that:
+ *   - whereIsReservable() only admits root elements. Tables 1, 2, 4 and 7 hang
+ *     as children off the combinations and are therefore never assigned - two
+ *     guests get the twelve-seat combination instead of a small table.
+ *   - Parents and children are not linked in terms of availability. Occupy
+ *     "Tisch 1/Tisch 2" and "Tisch 1" still counts as free. Measured.
  *
- * Deshalb uebernimmt diese Klasse Auswahl und Belegungspruefung vollstaendig.
- * Die Raeume (Scheune, Keller, Saal) bleiben aussen vor, sie werden nur von Hand
- * vergeben.
+ * This class therefore takes over selection and occupancy check entirely. The
+ * rooms (barn, cellar, hall) stay out of it, they are only assigned by hand.
  */
 class TableAllocator
 {
-    /** Alle vergebbaren Tische eines Standorts, Kinder eingeschlossen. */
+    /** All assignable tables of a location, children included. */
     public static function candidates(int $locationId): Collection
     {
         return DiningTable::query()
@@ -40,16 +39,17 @@ class TableAllocator
     }
 
     /**
-     * Tische, die im genannten Zeitraum belegt sind - samt Eltern und Kindern.
-     * Wer "Tisch 1/Tisch 2" bucht, belegt damit auch Tisch 1 und Tisch 2.
+     * Tables that are occupied in the given period - parents and children
+     * included. Whoever books "Tisch 1/Tisch 2" thereby occupies Tisch 1 and
+     * Tisch 2 as well.
      */
     public static function busyIds(Carbon $from, Carbon $to, Collection $reservations): Collection
     {
         $ids = collect();
 
         foreach ($reservations as $r) {
-            // Ueberschneidung zweier Zeitraeume: Start des einen liegt vor dem
-            // Ende des anderen und umgekehrt.
+            // Overlap of two periods: the start of one lies before the end of
+            // the other and vice versa.
             if ($from->lt($r->reservation_end_datetime) && $to->gt($r->reservation_datetime)) {
                 $ids = $ids->merge($r->tables->pluck('id'));
             }
@@ -58,7 +58,7 @@ class TableAllocator
         return self::withRelatives($ids->unique());
     }
 
-    /** Erweitert eine Menge von Tisch-IDs um deren Eltern und Kinder. */
+    /** Extends a set of table ids by their parents and children. */
     public static function withRelatives(Collection $ids): Collection
     {
         if ($ids->isEmpty()) {
@@ -86,7 +86,7 @@ class TableAllocator
         return collect($result)->unique()->values();
     }
 
-    /** Freie Tische zu einem Zeitpunkt. */
+    /** Free tables at a given moment. */
     public static function freeAt(Collection $candidates, Carbon $at, int $duration, Collection $reservations): Collection
     {
         $busy = self::busyIds($at, $at->copy()->addMinutes(max(1, $duration)), $reservations);
@@ -95,44 +95,44 @@ class TableAllocator
     }
 
     /**
-     * Beste Wahl fuer eine Gaestezahl: der kleinste passende Einzeltisch, und
-     * erst wenn keiner reicht, die kleinste passende Kombination.
+     * Best choice for a guest count: the smallest fitting single table, and
+     * only when none suffices, the smallest fitting combination.
      */
     public static function pick(Collection $free, int $guests): ?DiningTable
     {
-        $passend = $free->filter(
+        $fitting = $free->filter(
             fn ($t): bool => $t->min_capacity <= $guests && ($t->max_capacity + $t->extra_capacity) >= $guests,
         );
 
-        $einzeln = $passend->where('is_combo', 0)->sortBy('max_capacity');
-        if ($einzeln->isNotEmpty()) {
-            return $einzeln->first();
+        $single = $fitting->where('is_combo', 0)->sortBy('max_capacity');
+        if ($single->isNotEmpty()) {
+            return $single->first();
         }
 
-        return $passend->where('is_combo', 1)->sortBy('max_capacity')->first();
+        return $fitting->where('is_combo', 1)->sortBy('max_capacity')->first();
     }
 
     /**
-     * Tischwahl fuer eine Reservierung: kleinster passender Einzeltisch, sonst
-     * die kleinste passende Kombination. Die Reservierung selbst zaehlt nicht
-     * als Belegung - sie kann beim Speichern bereits Tische haengen haben.
+     * Table choice for a reservation: smallest fitting single table, otherwise
+     * the smallest fitting combination. The reservation itself does not count
+     * as occupancy - it may already have tables attached while being saved.
      */
     public static function allocate(Reservation $reservation): ?DiningTable
     {
         $locationId = (int) $reservation->location_id;
         $at = $reservation->reservation_datetime;
 
-        $frei = self::freeAt(
+        $free = self::freeAt(
             self::candidates($locationId),
             $at,
             (int) $reservation->duration,
             self::reservationsOn($locationId, $at, (int) $reservation->getKey()),
         );
 
-        return self::pick($frei, max(1, (int) $reservation->guest_num));
+        return self::pick($free, max(1, (int) $reservation->guest_num));
     }
 
-    /** Reservierungen eines Tages, die fuer die Belegung zaehlen. */
+    /** Reservations of a day that count towards the occupancy. */
     public static function reservationsOn(int $locationId, Carbon $date, ?int $ignore = null): Collection
     {
         return Reservation::query()
