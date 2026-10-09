@@ -6,7 +6,10 @@ use Wagnersnetz\ReservationControl\Models\Settings;
 
 // SettingsModel keeps its instances in a static cache that survives the
 // database rollback of the test transaction. Start every test without it.
-beforeEach(fn () => Settings::clearInternalCache());
+beforeEach(function (): void {
+    resetSettingsState();
+});
+afterEach(fn () => Settings::clearInternalCache());
 
 it('stores and reads a setting', function (): void {
     Settings::set('large_party_threshold', 25);

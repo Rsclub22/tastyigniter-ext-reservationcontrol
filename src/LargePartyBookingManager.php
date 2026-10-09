@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Igniter\Local\Classes\WorkingSchedule;
 use Igniter\Reservation\Classes\BookingManager;
 use Illuminate\Support\Collection;
+use Wagnersnetz\ReservationControl\Models\Settings;
 
 /**
  * Reservations generally run inside the opening hours (schedule "opening").
@@ -16,13 +17,14 @@ use Illuminate\Support\Collection;
  */
 class LargePartyBookingManager extends BookingManager
 {
-    /** From this guest count on, the opening hours no longer apply. */
-    public const int LARGE_PARTY_FROM = 20;
+    /** Used whenever the settings hold no usable value. */
+    public const int DEFAULT_THRESHOLD = 20;
 
-    /** Time window offered to large parties instead. */
-    public const string LARGE_PARTY_OPEN = '10:00';
+    public const string DEFAULT_OPEN = '10:00';
 
-    public const string LARGE_PARTY_CLOSE = '22:00';
+    public const string DEFAULT_CLOSE = '22:00';
+
+    public const int DEFAULT_INTERNAL_HORIZON_DAYS = 365;
 
     private ?int $forcedGuestCount = null;
 
@@ -31,14 +33,6 @@ class LargePartyBookingManager extends BookingManager
      * intake.
      */
     private bool $internal = false;
-
-    /**
-     * How far ahead phone intake may book. The public horizon (currently 60
-     * days) does not apply there: Christmas and New Year's Eve are taken in
-     * autumn, and a day without offered times is not something that can be
-     * explained on the phone.
-     */
-    public const int INTERNAL_ADVANCE_DAYS = 365;
 
     private const array WEEKDAYS = [
         'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
@@ -52,7 +46,7 @@ class LargePartyBookingManager extends BookingManager
         // The bar against times already past is untouched by this, it sits in
         // makeTimeSlots().
         $days ??= $this->internal
-            ? [0, self::INTERNAL_ADVANCE_DAYS]
+            ? [0, self::internalHorizonDays()]
             : [
                 $this->location->getMinReservationAdvanceTime(),
                 $this->location->getMaxReservationAdvanceTime(),
@@ -62,9 +56,15 @@ class LargePartyBookingManager extends BookingManager
             return parent::getSchedule($days);
         }
 
+        $window = [self::windowOpen(), self::windowClose()];
+
+        // With the switch off, the window only applies on weekdays that have
+        // ordinary opening hours.
+        $opening = self::allWeekdays() ? null : parent::getSchedule($days);
+
         $periods = [];
         foreach (self::WEEKDAYS as $weekday) {
-            $periods[$weekday] = [[self::LARGE_PARTY_OPEN, self::LARGE_PARTY_CLOSE]];
+            $periods[$weekday] = $opening?->isClosedOn($weekday) ? [] : [$window];
         }
 
         $schedule = WorkingSchedule::create($days, $periods);
@@ -118,7 +118,7 @@ class LargePartyBookingManager extends BookingManager
             ->values()
             ->all();
 
-        if ($this->isLargeParty()) {
+        if ($this->isLargeParty() && self::skipTableCheck()) {
             return $taken;
         }
 
@@ -172,6 +172,89 @@ class LargePartyBookingManager extends BookingManager
     {
         $guests = $this->forcedGuestCount ?? BookingContext::guestCount();
 
-        return ! is_null($guests) && $guests >= self::LARGE_PARTY_FROM;
+        return ! is_null($guests) && $guests >= self::threshold();
+    }
+
+    /** From this guest count on, the opening hours no longer apply. */
+    public static function threshold(): int
+    {
+        $value = self::stored('large_party_threshold');
+
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : self::DEFAULT_THRESHOLD;
+    }
+
+    /** Start of the time window offered to large parties. */
+    public static function windowOpen(): string
+    {
+        return self::window()[0];
+    }
+
+    /** End of the time window offered to large parties. */
+    public static function windowClose(): string
+    {
+        return self::window()[1];
+    }
+
+    /** Whether the large-party window applies on all seven weekdays. */
+    public static function allWeekdays(): bool
+    {
+        return self::flag('large_party_all_weekdays');
+    }
+
+    /** Whether the table/occupancy check is skipped for large parties. */
+    public static function skipTableCheck(): bool
+    {
+        return self::flag('large_party_skip_table_check');
+    }
+
+    /**
+     * The configured window, or the defaults when either time is malformed or
+     * the window does not close after it opens (e.g. 22:00 - 10:00).
+     *
+     * @return array{0: string, 1: string}
+     */
+    private static function window(): array
+    {
+        $open = self::validTime(self::stored('large_party_open'), self::DEFAULT_OPEN);
+        $close = self::validTime(self::stored('large_party_close'), self::DEFAULT_CLOSE);
+
+        return $close > $open ? [$open, $close] : [self::DEFAULT_OPEN, self::DEFAULT_CLOSE];
+    }
+
+    /** A switch that is on unless explicitly turned off, so an unset value keeps today's behaviour. */
+    private static function flag(string $key): bool
+    {
+        $value = self::stored($key);
+
+        return $value === null || $value === '' ? true : filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * How far ahead phone intake may book. The public horizon (currently 60
+     * days) does not apply there: Christmas and New Year's Eve are taken in
+     * autumn, and a day without offered times is not something that can be
+     * explained on the phone.
+     */
+    public static function internalHorizonDays(): int
+    {
+        $value = self::stored('internal_booking_horizon_days');
+
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : self::DEFAULT_INTERNAL_HORIZON_DAYS;
+    }
+
+    /**
+     * Reads a stored setting. Settings::get() is typed by Eloquent as a Collection,
+     * so the result is only ever checked here, never trusted.
+     */
+    private static function stored(string $key): mixed
+    {
+        return Settings::get($key);
+    }
+
+    private static function validTime(mixed $value, string $default): string
+    {
+        return is_string($value) && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $value) === 1
+            ? $value
+            : $default;
     }
 }
