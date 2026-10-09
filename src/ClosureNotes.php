@@ -87,7 +87,22 @@ class ClosureNotes
      * blanks may sit between keyword, colon and text) and runs to the end of
      * the line, so a clause on the next line is never swallowed.
      */
-    private const string GUEST_TEXT_PATTERN = '/\bonline\s+(?:wieder\s+)?buchbar\b[ \t]*:[ \t]*([^\r\n]*)/iu';
+    private const string GUEST_TEXT_PATTERN = '/\bonline\s+(?:wieder\s+)?buchbar\b[ \t]*:[ \t]*((?:(?!\bhinweis[ \t]*:)[^\r\n])*)/iu';
+
+    /**
+     * Text for guests that is advertised but opens nothing: "HINWEIS: Märchenabend,
+     * Reservierung nur telefonisch". It reads to the end of the line like the
+     * guest text above, but stops in front of an "online buchbar:" later on
+     * the same line, and the guest text above stops in front of "hinweis:" -
+     * so neither swallows the other, whichever comes first.
+     *
+     * The whole match (keyword and text) is guest prose and nothing else:
+     * operative() cuts it out before any keyword, time, cap or all-day wording
+     * is read, so "HINWEIS: ... online buchbar ..." cannot open a window.
+     *
+     * German only, like every pattern here.
+     */
+    private const string HINWEIS_PATTERN = '/\bhinweis[ \t]*:[ \t]*((?:(?!\bonline\s+(?:wieder\s+)?buchbar\b[ \t]*:)[^\r\n])*)/iu';
 
     /**
      * Times that name an event slot in an opted-in note: "17 Uhr", "17:30 Uhr"
@@ -163,7 +178,7 @@ class ClosureNotes
      */
     public static function isAllDay(Reservation $note, Carbon $date): bool
     {
-        if (preg_match(self::ALL_DAY_PATTERN, (string) $note->comment)) {
+        if (preg_match(self::ALL_DAY_PATTERN, self::operative($note))) {
             return true;
         }
 
@@ -232,7 +247,7 @@ class ClosureNotes
      */
     public static function isOnlineOpen(Reservation $note): bool
     {
-        $text = (string) $note->comment;
+        $text = self::operative($note);
 
         if (preg_match(self::ALL_DAY_PATTERN, $text)) {
             return false;
@@ -254,6 +269,33 @@ class ClosureNotes
         }
 
         return true;
+    }
+
+    /** The note's comment without its "HINWEIS:" text: the part every rule reads. */
+    private static function operative(Reservation $note): string
+    {
+        return (string) preg_replace(self::HINWEIS_PATTERN, '', (string) $note->comment);
+    }
+
+    /**
+     * The guest text after "HINWEIS:", trimmed - advertised, never bookable and
+     * never a reason to open anything. '' without a colon or without text; the
+     * first occurrence that carries a text wins. Independent of the online
+     * opt-in: it needs none.
+     */
+    public static function hinweisText(Reservation $note): string
+    {
+        if (! preg_match_all(self::HINWEIS_PATTERN, (string) $note->comment, $matches)) {
+            return '';
+        }
+
+        foreach ($matches[1] as $text) {
+            if (($text = trim($text)) !== '') {
+                return $text;
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -335,7 +377,7 @@ class ClosureNotes
         $times = [];
 
         foreach ($notes as $note) {
-            if (! $text = trim((string) $note->comment)) {
+            if (! $text = trim(self::operative($note))) {
                 continue;
             }
 
@@ -374,7 +416,7 @@ class ClosureNotes
         $values = [];
 
         foreach ($notes as $note) {
-            if (! $text = trim((string) $note->comment)) {
+            if (! $text = trim(self::operative($note))) {
                 continue;
             }
 
@@ -441,7 +483,7 @@ class ClosureNotes
         $plan = [];
 
         foreach ($notes as $note) {
-            if (! $text = trim((string) $note->comment)) {
+            if (! $text = trim(self::operative($note))) {
                 continue;
             }
 
@@ -550,8 +592,8 @@ class ClosureNotes
         // 18 Uhr") describes the evening, it does not name a booking time: it
         // is left out, so that a time in it never opens a slot of its own.
         $text = self::isOnlineOpen($note)
-            ? (string) preg_replace(self::GUEST_TEXT_PATTERN, '', (string) $note->comment)
-            : (string) $note->comment;
+            ? (string) preg_replace(self::GUEST_TEXT_PATTERN, '', self::operative($note))
+            : self::operative($note);
 
         if (preg_match_all(self::EVENT_TIME_PATTERN, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $m) {
