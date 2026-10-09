@@ -22,16 +22,22 @@ use Illuminate\Support\Collection;
 class Rooms
 {
     /**
-     * Name of the dining area in the database. German, because that is how the
-     * area is named in a running installation.
+     * Default name of the dining area in the database. German, because that is
+     * how the area is named in a running installation.
      */
-    public const string AREA = 'Räume';
+    public const string DEFAULT_AREA = 'Räume';
+
+    /** Name of the dining area that holds the rooms. */
+    public static function areaName(): string
+    {
+        return SettingValue::string('rooms_area_name', self::DEFAULT_AREA);
+    }
 
     public static function all(): Collection
     {
         return DiningTable::query()
             ->select('dining_tables.*')
-            ->whereHas('dining_area', fn ($q) => $q->where('name', self::AREA))
+            ->whereHas('dining_area', fn ($q) => $q->where('name', self::areaName()))
             ->orderBy('dining_tables.name')
             ->get();
     }

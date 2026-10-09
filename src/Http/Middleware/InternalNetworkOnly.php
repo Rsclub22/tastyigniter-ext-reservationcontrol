@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\IpUtils;
 use Symfony\Component\HttpFoundation\Response;
+use Wagnersnetz\ReservationControl\SettingValue;
 
 /**
  * Lets only calls from the local network through.
@@ -24,7 +25,7 @@ use Symfony\Component\HttpFoundation\Response;
 class InternalNetworkOnly
 {
     /** Private networks per RFC 1918 plus loopback and the VPN network of the Pi. */
-    private const array ALLOWED = [
+    public const array DEFAULT_ALLOWED = [
         '127.0.0.1',
         '::1',
         '10.0.0.0/8',
@@ -33,11 +34,23 @@ class InternalNetworkOnly
         'fc00::/7',
     ];
 
+    /**
+     * Who may see the internal pages. A separate question from whom the
+     * application believes about a request's origin (trusted proxies), even
+     * though both lists are the same by default.
+     *
+     * @return list<string>
+     */
+    public static function allowedNetworks(): array
+    {
+        return SettingValue::networks('internal_allowed_networks', self::DEFAULT_ALLOWED);
+    }
+
     public function handle(Request $request, Closure $next): Response
     {
         // Trusted proxies are set, so ip() returns the real sender address and
         // not the one of the bridge.
-        if (! IpUtils::checkIp((string) $request->ip(), self::ALLOWED)) {
+        if (! IpUtils::checkIp((string) $request->ip(), self::allowedNetworks())) {
             abort(404);
         }
 

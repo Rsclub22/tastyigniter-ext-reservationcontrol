@@ -24,6 +24,23 @@ use Illuminate\Support\Collection;
  */
 class TableAllocator
 {
+    /** Used whenever the settings hold no usable value. */
+    public const int DEFAULT_TURNOVER_BUFFER_MINUTES = 0;
+
+    public const int DEFAULT_MAX_TABLES_PER_RESERVATION = 1;
+
+    /** Minutes a table stays blocked after a reservation ends (cleaning, laying up). */
+    public static function turnoverBufferMinutes(): int
+    {
+        return SettingValue::int('turnover_buffer_minutes', self::DEFAULT_TURNOVER_BUFFER_MINUTES, min: 0);
+    }
+
+    /** How many single tables one reservation may be spread over. */
+    public static function maxTablesPerReservation(): int
+    {
+        return SettingValue::int('max_tables_per_reservation', self::DEFAULT_MAX_TABLES_PER_RESERVATION);
+    }
+
     /** All assignable tables of a location, children included. */
     public static function candidates(int $locationId): Collection
     {
@@ -34,7 +51,7 @@ class TableAllocator
                     ->where('dining_areas.location_id', $locationId);
             })
             ->where('dining_tables.is_enabled', 1)
-            ->whereNot('dining_areas.name', Rooms::AREA)
+            ->whereNot('dining_areas.name', Rooms::areaName())
             ->get();
     }
 
@@ -46,11 +63,13 @@ class TableAllocator
     public static function busyIds(Carbon $from, Carbon $to, Collection $reservations): Collection
     {
         $ids = collect();
+        $buffer = self::turnoverBufferMinutes();
 
         foreach ($reservations as $r) {
             // Overlap of two periods: the start of one lies before the end of
-            // the other and vice versa.
-            if ($from->lt($r->reservation_end_datetime) && $to->gt($r->reservation_datetime)) {
+            // the other and vice versa. The turnover buffer extends the end of
+            // the existing reservation.
+            if ($from->lt($r->reservation_end_datetime->copy()->addMinutes($buffer)) && $to->gt($r->reservation_datetime)) {
                 $ids = $ids->merge($r->tables->pluck('id'));
             }
         }
@@ -130,6 +149,52 @@ class TableAllocator
         );
 
         return self::pick($free, max(1, (int) $reservation->guest_num));
+    }
+
+    /**
+     * Ids of the tables for a reservation. One table (or one combination) as
+     * before; only when none suffices and more than one table is allowed, free
+     * single tables are added, largest first, until the party fits.
+     *
+     * @return list<int>
+     */
+    public static function allocateTables(Reservation $reservation, int $maxTables): array
+    {
+        $table = self::allocate($reservation);
+        if ($table) {
+            return [$table->getKey()];
+        }
+
+        if ($maxTables < 2) {
+            return [];
+        }
+
+        $locationId = (int) $reservation->location_id;
+        $at = $reservation->reservation_datetime;
+        $guests = max(1, (int) $reservation->guest_num);
+
+        $free = self::freeAt(
+            self::candidates($locationId),
+            $at,
+            (int) $reservation->duration,
+            self::reservationsOn($locationId, $at, (int) $reservation->getKey()),
+        )->where('is_combo', 0)->sortByDesc('max_capacity')->values();
+
+        $chosen = [];
+        $seats = 0;
+        foreach ($free as $candidate) {
+            if (count($chosen) >= $maxTables) {
+                break;
+            }
+            $chosen[] = $candidate->getKey();
+            $seats += (int) $candidate->max_capacity;
+            if ($seats >= $guests) {
+                return $chosen;
+            }
+        }
+
+        // Not enough seats within the limit: leave the reservation unassigned.
+        return [];
     }
 
     /** Reservations of a day that count towards the occupancy. */

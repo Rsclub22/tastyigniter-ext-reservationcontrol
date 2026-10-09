@@ -43,6 +43,19 @@ class Extension extends BaseExtension
     /** Fields by which the rule set of the booking form is recognised. */
     private const BOOKING_FIELDS = ['firstName', 'lastName', 'telephone'];
 
+    /** Used whenever the settings hold no usable value. */
+    public const array DEFAULT_TRUSTED_PROXIES = ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
+
+    public const string DEFAULT_ADMIN_RATE_LIMIT = '30,1';
+
+    public const int DEFAULT_MAX_NAME_LENGTH = 48;
+
+    public const int DEFAULT_MAX_EMAIL_LENGTH = 96;
+
+    public const int DEFAULT_MAX_PHONE_LENGTH = 40;
+
+    public const string DEFAULT_PHONE_PATTERN = '/^([0-9\s\-\+\(\)]*)$/i';
+
     /**
      * Console commands for entry by hand. They have to be registered in
      * register() - in boot() the command list of Artisan is already assembled
@@ -66,13 +79,13 @@ class Extension extends BaseExtension
         // then share one throttling counter and the admin login locks itself
         // out after a few calls. The container is bound to 127.0.0.1 only, so
         // it is reachable exclusively through the proxy.
-        TrustProxies::at(['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16']);
+        TrustProxies::at(self::trustedProxies());
 
         // TastyIgniter throttles the admin login with 6 requests per minute and
         // counts merely opening the page towards that. For a single user that is
         // too tight; 30 per minute still protects against brute forcing but
         // does not lock anybody out over a typo.
-        config(['igniter-auth.rateLimiter' => env('ADMIN_RATE_LIMIT', '30,1')]);
+        config(['igniter-auth.rateLimiter' => self::adminRateLimit()]);
 
         // Reach the individually blocked days into every schedule that is
         // created. WorkingSchedule::forDate() checks exceptions before the
@@ -93,12 +106,14 @@ class Extension extends BaseExtension
         // during boot already. Only sets it when the message does not bring one
         // of its own.
         Event::listen(MessageSending::class, function (MessageSending $event): void {
-            $address = env('MAIL_REPLY_TO_ADDRESS', 'info@zum-braunen-ross-bauerbach.de');
-            if (! $address || $event->message->getReplyTo()) {
+            // No address configured: no Reply-To at all. An invented one would
+            // send guest replies to somebody who never asked for them.
+            $address = self::replyToAddress();
+            if ($address === null || $event->message->getReplyTo()) {
                 return;
             }
 
-            $event->message->replyTo(new Address($address, (string) env('MAIL_REPLY_TO_NAME', 'Gasthaus Zum braunen Roß')));
+            $event->message->replyTo(new Address($address, self::replyToName()));
         });
 
         // In the backend a name is enough. The reservations imported for the
@@ -127,10 +142,11 @@ class Extension extends BaseExtension
             // without any clue who is actually coming. The condition hangs off
             // the last name only, otherwise the form reports the same hint
             // twice.
-            $holder->rules['first_name'] = ['nullable', 'string', 'between:1,48'];
-            $holder->rules['last_name'] = ['required_without_all:first_name,customer_id', 'nullable', 'string', 'between:1,48'];
-            $holder->rules['email'] = ['nullable', 'email:filter', 'max:96'];
-            $holder->rules['telephone'] = ['nullable', 'string', 'max:40'];
+            $name = self::maxNameLength();
+            $holder->rules['first_name'] = ['nullable', 'string', 'between:1,'.$name];
+            $holder->rules['last_name'] = ['required_without_all:first_name,customer_id', 'nullable', 'string', 'between:1,'.$name];
+            $holder->rules['email'] = ['nullable', 'email:filter', 'max:'.self::maxEmailLength()];
+            $holder->rules['telephone'] = ['nullable', 'string', 'max:'.self::maxPhoneLength()];
 
             $holder->messages['last_name.required_without_all'] = __('reservationcontrol::default.error_name_required');
         });
@@ -184,9 +200,9 @@ class Extension extends BaseExtension
                 return;
             }
 
-            $table = TableAllocator::allocate($reservation);
-
-            $reservation->addReservationTables($table ? [$table->getKey()] : []);
+            $reservation->addReservationTables(
+                TableAllocator::allocateTables($reservation, TableAllocator::maxTablesPerReservation()),
+            );
         });
 
         // The manager is only resolved per request, so redirecting it in boot()
@@ -236,11 +252,79 @@ class Extension extends BaseExtension
 
         Validator::resolver(function ($translator, array $data, array $rules, array $messages, array $attributes) {
             if ($this->isBookingForm($rules)) {
-                $rules['telephone'] = ['required', 'regex:/^([0-9\s\-\+\(\)]*)$/i'];
+                $rules['telephone'] = self::publicPhoneRules();
             }
 
             return new \Illuminate\Validation\Validator($translator, $data, $rules, $messages, $attributes);
         });
+    }
+
+    /**
+     * Whom the application believes about the origin of a request. Not the same
+     * question as who may see the internal pages - see
+     * InternalNetworkOnly::allowedNetworks().
+     *
+     * @return list<string>
+     */
+    public static function trustedProxies(): array
+    {
+        return SettingValue::networks('trusted_proxies', self::DEFAULT_TRUSTED_PROXIES);
+    }
+
+    /**
+     * "attempts,minutes". Setting first, then the ADMIN_RATE_LIMIT variable
+     * that running installations already use, then the default.
+     */
+    public static function adminRateLimit(): string
+    {
+        $valid = static fn (mixed $v): bool => is_string($v) && preg_match('/^[1-9]\d{0,5},[1-9]\d{0,4}$/', $v) === 1;
+
+        $stored = SettingValue::stored('admin_rate_limit');
+        if ($valid($stored)) {
+            return $stored;
+        }
+
+        $env = env('ADMIN_RATE_LIMIT');
+
+        return $valid($env) ? $env : self::DEFAULT_ADMIN_RATE_LIMIT;
+    }
+
+    /** No default: without a configured address no Reply-To is set. */
+    public static function replyToAddress(): ?string
+    {
+        $address = SettingValue::nullableString('reply_to_address') ?? (is_string($env = env('MAIL_REPLY_TO_ADDRESS')) ? trim($env) : null);
+
+        return $address !== null && filter_var($address, FILTER_VALIDATE_EMAIL) !== false ? $address : null;
+    }
+
+    public static function replyToName(): string
+    {
+        $env = env('MAIL_REPLY_TO_NAME');
+
+        return SettingValue::nullableString('reply_to_name') ?? (is_string($env) ? $env : '');
+    }
+
+    public static function maxNameLength(): int
+    {
+        return SettingValue::int('max_name_length', self::DEFAULT_MAX_NAME_LENGTH);
+    }
+
+    public static function maxEmailLength(): int
+    {
+        return SettingValue::int('max_email_length', self::DEFAULT_MAX_EMAIL_LENGTH);
+    }
+
+    public static function maxPhoneLength(): int
+    {
+        return SettingValue::int('max_phone_length', self::DEFAULT_MAX_PHONE_LENGTH);
+    }
+
+    /** Rules for the telephone field of the public booking form. */
+    public static function publicPhoneRules(): array
+    {
+        $rules = ['regex:'.SettingValue::pattern('phone_pattern', self::DEFAULT_PHONE_PATTERN)];
+
+        return SettingValue::flag('phone_required_public', true) ? ['required', ...$rules] : ['nullable', ...$rules];
     }
 
     public function registerSettings(): array

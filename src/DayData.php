@@ -28,7 +28,7 @@ use Igniter\Reservation\Models\Reservation;
 class DayData
 {
     /** Default for when the daily sheet switches to a second sheet. */
-    public const string SPLIT_TIME = '15:00';
+    public const string DEFAULT_SPLIT_TIME = '15:00';
 
     public static function forDate(Carbon $date, int $guests, ?DiningTable $room = null, ?Reservation $new = null): array
     {
@@ -200,27 +200,40 @@ class DayData
             'vermerkZeiten' => $noteTimes,
             'maxPax' => $maxPax,
             'paxJeZeit' => $paxPerTime,
-            'trennzeit' => self::splitTime(null),
+            'trennzeit' => self::resolveSplitTime(null),
         ];
     }
 
     /**
-     * Split time as HH:MM, or null for a single sheet.
+     * The configured split time of a location, or null for a single sheet.
+     *
+     * The setting is global: $locationId exists so that callers say which
+     * location they mean and a per-location setting can arrive later without
+     * changing every call site. Today every location gets the same answer.
+     */
+    public static function splitTime(int $locationId): ?string
+    {
+        return self::resolveSplitTime(null);
+    }
+
+    /**
+     * Split time as HH:MM, or null for a single sheet, from user input; without
+     * input the configured value.
      *
      * The env variable and the literal "aus" stay as they are because they are
      * configuration of a running installation; "off" is accepted as well, so
      * that the English hint on the print form tells the truth.
      */
-    public static function splitTime(?string $raw): ?string
+    public static function resolveSplitTime(?string $raw): ?string
     {
-        $raw = trim((string) ($raw ?? env('INTERN_DRUCK_TRENNZEIT', self::SPLIT_TIME)));
+        $raw = trim((string) ($raw ?? SettingValue::nullableString('split_time') ?? env('INTERN_DRUCK_TRENNZEIT', self::DEFAULT_SPLIT_TIME)));
 
         if ($raw === '' || in_array(strtolower($raw), ['aus', 'off'], true)) {
             return null;
         }
 
         if (! preg_match('/^(\d{1,2}):(\d{2})$/', $raw, $matches)) {
-            return self::SPLIT_TIME;
+            return self::DEFAULT_SPLIT_TIME;
         }
 
         $hour = (int) $matches[1];
@@ -228,7 +241,7 @@ class DayData
 
         return $hour <= 23 && $minute <= 59
             ? sprintf('%02d:%02d', $hour, $minute)
-            : self::SPLIT_TIME;
+            : self::DEFAULT_SPLIT_TIME;
     }
 
     public static function location(): Location

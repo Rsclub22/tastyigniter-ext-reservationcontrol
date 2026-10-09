@@ -15,6 +15,9 @@ use SamPoyigi\Testbench\TestCase;
 // once per process and is not affected. Reset it for every test.
 uses(TestCase::class)->in(__DIR__)->beforeEach(function (): void {
     // flushEventListeners() would instantiate the abstract base class, so reset the flag directly.
+    // WARNING: Model::$eventsBooted is a Flame INTERNAL, not API. A framework
+    // upgrade that renames or removes it makes this closure throw in beforeEach,
+    // i.e. EVERY test fails at once. If that happens, look here first.
     (static function (): void {
         static::$eventsBooted = [];
     })->bindTo(null, Model::class)();

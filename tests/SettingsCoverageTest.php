@@ -1,0 +1,280 @@
+<?php
+
+declare(strict_types=1);
+
+use Igniter\Reservation\Http\Requests\ReservationRequest;
+use Igniter\Reservation\Models\DiningArea;
+use Igniter\Reservation\Models\DiningTable;
+use Igniter\Reservation\Models\Reservation;
+use Illuminate\Http\Request;
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Mail\Message;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Mime\Email;
+use Wagnersnetz\ReservationControl\DailySheet;
+use Wagnersnetz\ReservationControl\DayData;
+use Wagnersnetz\ReservationControl\Extension;
+use Wagnersnetz\ReservationControl\Http\Middleware\InternalNetworkOnly;
+use Wagnersnetz\ReservationControl\Models\Settings;
+use Wagnersnetz\ReservationControl\Rooms;
+use Wagnersnetz\ReservationControl\TableAllocator;
+
+afterEach(fn () => Settings::clearInternalCache());
+
+/** Store through the real API (what the admin form calls) and re-read from the database. */
+function store(string $key, mixed $value): void
+{
+    expect(Settings::set($key, $value))->toBeTrue();
+
+    Settings::clearInternalCache();
+}
+
+it('defaults every reader to the previously hardcoded value', function (): void {
+    expect(TableAllocator::turnoverBufferMinutes())->toBe(0)
+        ->and(TableAllocator::maxTablesPerReservation())->toBe(1)
+        ->and(Rooms::areaName())->toBe('Räume')
+        ->and(DailySheet::maxRangeDays())->toBe(92)
+        ->and(DayData::splitTime(locationId: 1))->toBe('15:00')
+        ->and(InternalNetworkOnly::allowedNetworks())->toBe(['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', 'fc00::/7'])
+        ->and(Extension::trustedProxies())->toBe(['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'])
+        ->and(Extension::adminRateLimit())->toBe('30,1')
+        ->and(Extension::maxNameLength())->toBe(48)
+        ->and(Extension::maxEmailLength())->toBe(96)
+        ->and(Extension::maxPhoneLength())->toBe(40)
+        ->and(Extension::publicPhoneRules())->toBe(['required', 'regex:/^([0-9\s\-\+\(\)]*)$/i']);
+});
+
+it('has no reply-to address unless one is configured', function (): void {
+    expect(Extension::replyToAddress())->toBeNull();
+
+    store('reply_to_address', 'not an address');
+    expect(Extension::replyToAddress())->toBeNull();
+
+    store('reply_to_address', 'hello@example.com');
+    expect(Extension::replyToAddress())->toBe('hello@example.com');
+});
+
+it('keeps trusted proxies and internal networks as two independent settings', function (): void {
+    store('trusted_proxies', "203.0.113.7\n10.1.0.0/16");
+
+    expect(Extension::trustedProxies())->toBe(['203.0.113.7', '10.1.0.0/16'])
+        ->and(InternalNetworkOnly::allowedNetworks())->toContain('192.168.0.0/16')
+        ->and(InternalNetworkOnly::allowedNetworks())->not->toContain('203.0.113.7');
+
+    store('internal_allowed_networks', '198.51.100.0/24');
+    expect(InternalNetworkOnly::allowedNetworks())->toBe(['198.51.100.0/24'])
+        ->and(Extension::trustedProxies())->toBe(['203.0.113.7', '10.1.0.0/16']);
+});
+
+it('lets the middleware follow the configured networks', function (): void {
+    store('internal_allowed_networks', '198.51.100.0/24');
+    $pass = fn (string $ip) => (new InternalNetworkOnly)->handle(
+        Request::create('/intern', server: ['REMOTE_ADDR' => $ip]),
+        fn () => response('ok'),
+    )->getContent();
+
+    expect($pass('198.51.100.9'))->toBe('ok')
+        ->and(fn () => $pass('192.168.1.5'))->toThrow(NotFoundHttpException::class);
+});
+
+it('honours a configured value', function (): void {
+    store('turnover_buffer_minutes', 30);
+    store('rooms_area_name', 'Rooms');
+    store('max_name_length', 80);
+
+    expect(TableAllocator::turnoverBufferMinutes())->toBe(30)
+        ->and(Rooms::areaName())->toBe('Rooms')
+        ->and(Extension::maxNameLength())->toBe(80);
+});
+
+it('falls back when the stored value is nonsense', function (): void {
+    store('turnover_buffer_minutes', -10);
+    store('max_print_range_days', 0);
+    store('max_name_length', '25:00');
+    store('max_email_length', 'abc');
+    store('max_tables_per_reservation', 0);
+    store('rooms_area_name', '   ');
+    store('admin_rate_limit', '0,0');
+    store('phone_pattern', '/(unclosed');
+    store('trusted_proxies', "10.0.0.0/8\nnot-an-ip");
+    store('internal_allowed_networks', '10.0.0.0/99');
+    store('split_time', '25:61');
+
+    expect(TableAllocator::turnoverBufferMinutes())->toBe(0)
+        ->and(DailySheet::maxRangeDays())->toBe(92)
+        ->and(Extension::maxNameLength())->toBe(48)
+        ->and(Extension::maxEmailLength())->toBe(96)
+        ->and(TableAllocator::maxTablesPerReservation())->toBe(1)
+        ->and(Rooms::areaName())->toBe('Räume')
+        ->and(Extension::adminRateLimit())->toBe('30,1')
+        ->and(Extension::publicPhoneRules()[1])->toBe('regex:/^([0-9\s\-\+\(\)]*)$/i')
+        ->and(Extension::trustedProxies())->toBe(Extension::DEFAULT_TRUSTED_PROXIES)
+        ->and(InternalNetworkOnly::allowedNetworks())->toBe(InternalNetworkOnly::DEFAULT_ALLOWED)
+        ->and(DayData::splitTime(locationId: 1))->toBe('15:00');
+});
+
+it('switches the split time off with "off" and rejects other junk', function (): void {
+    store('split_time', 'off');
+    expect(DayData::splitTime(locationId: 1))->toBeNull();
+});
+
+it('makes the public phone optional only when told so', function (): void {
+    store('phone_required_public', false);
+    expect(Extension::publicPhoneRules()[0])->toBe('nullable');
+});
+
+it('declares the settings whose behaviour arrives in a later plan', function (): void {
+    $config = require __DIR__.'/../resources/models/settings.php';
+    $fields = $config['form']['fields'];
+
+    expect(array_keys($fields))
+        ->toContain('cutoff_hours_before_closing')
+        ->toContain('apply_max_guests_online')
+        ->toContain('allow_online_on_blocked_default')
+        ->and($fields['cutoff_hours_before_closing']['default'])->toBe(0)
+        ->and($fields['apply_max_guests_online']['default'])->toBeFalse()
+        ->and($fields['allow_online_on_blocked_default']['default'])->toBeFalse();
+});
+
+it('has a form default that equals the reader default for every field', function (): void {
+    $fields = (require __DIR__.'/../resources/models/settings.php')['form']['fields'];
+
+    expect($fields['split_time']['default'])->toBe(DayData::splitTime(1))
+        ->and($fields['max_print_range_days']['default'])->toBe(DailySheet::maxRangeDays())
+        ->and($fields['turnover_buffer_minutes']['default'])->toBe(TableAllocator::turnoverBufferMinutes())
+        ->and($fields['max_tables_per_reservation']['default'])->toBe(TableAllocator::maxTablesPerReservation())
+        ->and($fields['rooms_area_name']['default'])->toBe(Rooms::areaName())
+        ->and($fields['max_name_length']['default'])->toBe(Extension::maxNameLength())
+        ->and($fields['max_email_length']['default'])->toBe(Extension::maxEmailLength())
+        ->and($fields['max_phone_length']['default'])->toBe(Extension::maxPhoneLength())
+        ->and($fields['admin_rate_limit']['default'])->toBe(Extension::adminRateLimit())
+        ->and($fields['trusted_proxies']['default'])->toBe(implode("\n", Extension::trustedProxies()))
+        ->and($fields['internal_allowed_networks']['default'])->toBe(implode("\n", InternalNetworkOnly::allowedNetworks()))
+        ->and($fields['reply_to_address']['default'])->toBe('');
+});
+
+// Review Focus 5: settings are global, locations are not
+it('applies one global setting to every location', function (): void {
+    store('split_time', '14:00');
+
+    expect(DayData::splitTime(locationId: 1))->toBe('14:00')
+        ->and(DayData::splitTime(locationId: 2))->toBe('14:00');
+})->note('Deliberately global. To be recorded in docs/settings.md as a limitation.');
+
+it('blocks a table for the turnover buffer after a reservation ends', function (): void {
+    $r = new class
+    {
+        public $tables;
+
+        public $reservation_datetime;
+
+        public $reservation_end_datetime;
+
+        public function __construct()
+        {
+            $this->tables = collect([(object) ['id' => 7]]);
+            $this->reservation_datetime = Carbon\Carbon::parse('2026-10-09 18:00');
+            $this->reservation_end_datetime = Carbon\Carbon::parse('2026-10-09 20:00');
+        }
+    };
+    $busy = fn () => TableAllocator::busyIds(Carbon\Carbon::parse('2026-10-09 20:10'), Carbon\Carbon::parse('2026-10-09 22:00'), collect([$r]))->all();
+
+    expect($busy())->toBe([]);
+
+    store('turnover_buffer_minutes', 30);
+    expect($busy())->toBe([7]);
+});
+
+it('sets Reply-To only when an address is configured', function (): void {
+    $send = function (): ?string {
+        $message = new Message(new Email);
+        event(new MessageSending($message->getSymfonyMessage(), []));
+
+        $replyTo = $message->getSymfonyMessage()->getReplyTo();
+
+        return $replyTo === [] ? null : $replyTo[0]->getAddress();
+    };
+
+    expect($send())->toBeNull();
+
+    store('reply_to_address', 'hello@example.com');
+    expect($send())->toBe('hello@example.com');
+});
+
+it('applies the phone rule and length limits through the real validator', function (): void {
+    $phone = fn (string $value): bool => Validator::make(
+        ['firstName' => 'A', 'lastName' => 'B', 'telephone' => $value],
+        ['firstName' => 'required', 'lastName' => 'required', 'telephone' => 'string'],
+    )->passes();
+
+    expect($phone('+49 (0) 123-45'))->toBeTrue()
+        ->and($phone('call me'))->toBeFalse()
+        ->and($phone(''))->toBeFalse();
+
+    store('phone_required_public', false);
+    expect($phone(''))->toBeTrue();
+
+    store('phone_pattern', '/^\d+$/');
+    expect($phone('+49'))->toBeFalse()->and($phone('0123'))->toBeTrue();
+});
+
+it('spreads a party over several free tables only up to the configured limit', function (): void {
+    $area = DiningArea::create(['name' => 'Hall', 'location_id' => 99]);
+    $make = fn (string $name, int $cap) => DiningTable::create([
+        'name' => $name, 'dining_area_id' => $area->getKey(), 'min_capacity' => 1, 'max_capacity' => $cap,
+        'extra_capacity' => 0, 'is_combo' => 0, 'is_enabled' => 1, 'priority' => 1, 'shape' => 'rectangle',
+    ]);
+    $a = $make('A', 4);
+    $b = $make('B', 4);
+    $c = $make('C', 4);
+
+    $reservation = new Reservation;
+    $reservation->location_id = 99;
+    $reservation->guest_num = 10;
+    $reservation->reserve_date = '2030-01-01';
+    $reservation->reserve_time = '19:00:00';
+
+    expect(TableAllocator::allocateTables($reservation, 1))->toBe([])
+        ->and(TableAllocator::allocateTables($reservation, 2))->toBe([])
+        ->and(TableAllocator::allocateTables($reservation, 3))->toHaveCount(3);
+});
+
+it('feeds the configured length limits into the back-office and API rules', function (): void {
+    $rulesFor = function (): object {
+        $holder = (object) ['rules' => [], 'messages' => []];
+        Event::dispatch('system.formRequest.extendValidator', [new ReservationRequest, $holder]);
+
+        return $holder;
+    };
+
+    expect($rulesFor()->rules['last_name'])->toContain('between:1,48')
+        ->and($rulesFor()->rules['email'])->toContain('max:96')
+        ->and($rulesFor()->rules['telephone'])->toContain('max:40');
+
+    store('max_name_length', 60);
+    store('max_email_length', 120);
+    store('max_phone_length', 25);
+    expect($rulesFor()->rules['first_name'])->toContain('between:1,60')
+        ->and($rulesFor()->rules['email'])->toContain('max:120')
+        ->and($rulesFor()->rules['telephone'])->toContain('max:25');
+});
+
+it('keeps honouring the environment variables running installations already use', function (): void {
+    $_ENV['ADMIN_RATE_LIMIT'] = '12,3';
+    $_ENV['MAIL_REPLY_TO_ADDRESS'] = 'env@example.com';
+    $_ENV['INTERN_DRUCK_TRENNZEIT'] = '16:30';
+
+    try {
+        expect(Extension::adminRateLimit())->toBe('12,3')
+            ->and(Extension::replyToAddress())->toBe('env@example.com')
+            ->and(DayData::splitTime(1))->toBe('16:30');
+
+        // A stored setting wins over the variable.
+        store('admin_rate_limit', '5,2');
+        expect(Extension::adminRateLimit())->toBe('5,2');
+    } finally {
+        unset($_ENV['ADMIN_RATE_LIMIT'], $_ENV['MAIL_REPLY_TO_ADDRESS'], $_ENV['INTERN_DRUCK_TRENNZEIT']);
+    }
+});

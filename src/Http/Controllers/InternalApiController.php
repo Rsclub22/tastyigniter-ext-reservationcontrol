@@ -185,7 +185,7 @@ class InternalApiController extends ApiController
             'trennzeit' => ['nullable', 'string', 'max:8'],
         ]);
 
-        $splitTime = DayData::splitTime($data['trennzeit'] ?? null);
+        $splitTime = DayData::resolveSplitTime($data['trennzeit'] ?? null);
         $location = DayData::location();
 
         $from = $this->date($data['von'] ?? $data['datum'] ?? null);
@@ -196,8 +196,8 @@ class InternalApiController extends ApiController
             [$from, $to] = [$to, $from];
         }
 
-        if ($from->diffInDays($to) >= DailySheet::MAX_DAYS) {
-            $to = $from->copy()->addDays(DailySheet::MAX_DAYS - 1);
+        if ($from->diffInDays($to) >= DailySheet::maxRangeDays()) {
+            $to = $from->copy()->addDays(DailySheet::maxRangeDays() - 1);
         }
 
         $isRange = $from->ne($to);

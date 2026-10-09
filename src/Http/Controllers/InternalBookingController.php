@@ -113,8 +113,8 @@ class InternalBookingController extends Controller
             [$from, $to] = [$to, $from];
         }
 
-        if ($from->diffInDays($to) >= DailySheet::MAX_DAYS) {
-            $to = $from->copy()->addDays(DailySheet::MAX_DAYS - 1);
+        if ($from->diffInDays($to) >= DailySheet::maxRangeDays()) {
+            $to = $from->copy()->addDays(DailySheet::maxRangeDays() - 1);
         }
 
         return [$from, $to];
@@ -129,7 +129,7 @@ class InternalBookingController extends Controller
     /** Split time as HH:MM, or null for a single sheet. */
     private function splitTime(?string $raw): ?string
     {
-        return DayData::splitTime($raw);
+        return DayData::resolveSplitTime($raw);
     }
 
     public function store(Request $request): RedirectResponse

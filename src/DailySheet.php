@@ -27,7 +27,12 @@ class DailySheet
      * Upper limit for the batch print. Without it, a mistyped date range would
      * be an order spanning years.
      */
-    public const int MAX_DAYS = 92;
+    public const int DEFAULT_MAX_DAYS = 92;
+
+    public static function maxRangeDays(): int
+    {
+        return SettingValue::int('max_print_range_days', self::DEFAULT_MAX_DAYS);
+    }
 
     /** Everything a single day puts on paper. */
     public static function forDay(Location $location, Carbon $date, ?string $splitTime): array
