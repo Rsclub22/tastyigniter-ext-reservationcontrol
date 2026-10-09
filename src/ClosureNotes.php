@@ -80,6 +80,14 @@ class ClosureNotes
      */
     private const string ONLINE_OPEN_PATTERN = '/\bonline\s+(?:wieder\s+)?buchbar\b/iu';
 
+    /**
+     * The keyword with an optional guest text: "online buchbar: Märchenabend mit
+     * Menü ab 18 Uhr". The text starts after the colon (on the same line - only
+     * blanks may sit between keyword, colon and text) and runs to the end of
+     * the line, so a clause on the next line is never swallowed.
+     */
+    private const string GUEST_TEXT_PATTERN = '/\bonline\s+(?:wieder\s+)?buchbar\b[ \t]*:[ \t]*([^\r\n]*)/iu';
+
     /** A negation word; looked for in the clause in front of an ONLINE_OPEN_PATTERN match. */
     private const string NEGATION_PATTERN = '/\b(?:nicht|kein\w*)\b/iu';
 
@@ -223,6 +231,30 @@ class ClosureNotes
         }
 
         return true;
+    }
+
+    /**
+     * The text for guests that follows "online buchbar:" in an opted-in note,
+     * trimmed - '' when the note is not opted in, has no colon, or nothing
+     * after it. The first occurrence that carries a text wins.
+     */
+    public static function guestText(Reservation $note): string
+    {
+        if (! self::isOnlineOpen($note)) {
+            return '';
+        }
+
+        if (! preg_match_all(self::GUEST_TEXT_PATTERN, (string) $note->comment, $matches)) {
+            return '';
+        }
+
+        foreach ($matches[1] as $text) {
+            if (($text = trim($text)) !== '') {
+                return $text;
+            }
+        }
+
+        return '';
     }
 
     /** The notes that claim the whole day. */
