@@ -246,6 +246,13 @@ class Extension extends BaseExtension
         if ($orange) {
             $this->registerOrangeValidator();
         }
+
+        // Notice above the online booking form on special days. Any theme: the
+        // listener only looks at the component's shape (see
+        // GuestNotice::selectedDate()). listen(), not componentHook(), for the
+        // same timing reason as in registerOrangeHooks(). A throwing listener
+        // would break the page, so GuestNotice::onRender() never throws.
+        Livewire::listen('render', static fn ($component) => GuestNotice::onRender($component));
     }
 
     /** Tightens the telephone rule once the rule set of the public booking form is recognised. */

@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace Wagnersnetz\ReservationControl;
 
 use Carbon\Carbon;
+use Closure;
+use Illuminate\Support\Facades\Log;
+use Livewire\Component;
+use ReflectionProperty;
+use Throwable;
 
 /**
  * The notice a guest sees above the online booking form on a special day.
@@ -51,5 +56,114 @@ final class GuestNotice
         }
 
         return array_values(array_unique($texts));
+    }
+
+    /**
+     * The Livewire 'render' listener. Deliberately tiny and total: it answers
+     * with a callback that adds the notice, or with null, and it NEVER throws.
+     *
+     * The component belongs to a theme we do not control. Whatever goes wrong
+     * here - an unexpected component shape, a database error, a broken view -
+     * is logged and the page renders as if this extension were not installed:
+     * a missing notice is an annoyance, a broken booking form costs guests.
+     */
+    public static function onRender(mixed $component): ?Closure
+    {
+        try {
+            $html = self::noticeHtml($component);
+            if ($html === '') {
+                return null;
+            }
+
+            return static function (mixed $page = null) use ($html): ?string {
+                try {
+                    return is_string($page) ? self::inject($page, $html) : null;
+                } catch (Throwable $e) {
+                    self::report($e);
+
+                    return null;
+                }
+            };
+        } catch (Throwable $e) {
+            self::report($e);
+
+            return null;
+        }
+    }
+
+    /**
+     * The date the component shows, or null when it does not look like a
+     * booking form: a Livewire component with an initialised public string
+     * "date" (Y-m-d) next to a public "guest". Nothing else is read.
+     */
+    public static function selectedDate(mixed $component): ?string
+    {
+        if (! $component instanceof Component) {
+            return null;
+        }
+
+        foreach (['date', 'guest'] as $name) {
+            if (! property_exists($component, $name) || ! (new ReflectionProperty($component, $name))->isPublic()) {
+                return null;
+            }
+        }
+
+        $property = new ReflectionProperty($component, 'date');
+        if (! $property->isInitialized($component)) {
+            return null;
+        }
+
+        $date = $property->getValue($component);
+        if (! is_string($date) || preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+            return null;
+        }
+
+        // Strict: "2030-02-31" would otherwise overflow into March.
+        return Carbon::createFromFormat('!Y-m-d', $date)?->toDateString() === $date ? $date : null;
+    }
+
+    /** The escaped notice markup for the component's date; '' when there is nothing to say. */
+    public static function noticeHtml(mixed $component): string
+    {
+        if (($date = self::selectedDate($component)) === null) {
+            return '';
+        }
+
+        if (($notices = self::forDate($date)) === []) {
+            return '';
+        }
+
+        /** @var view-string $view */
+        $view = 'reservationcontrol::guest-notice';
+
+        return trim(view($view, ['notices' => $notices])->render());
+    }
+
+    /**
+     * Puts the markup right inside the component's root element, as its first
+     * child. A Livewire component must have exactly one root, so the notice
+     * cannot sit beside it. Returns the page untouched when no plain opening
+     * tag is found at the start.
+     */
+    public static function inject(string $page, string $notice): string
+    {
+        $root = '/\A\s*(?:<!--.*?-->\s*)*<[a-zA-Z][^\s\/>]*(?:\s+[^\s"\'>\/=]+(?:\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s"\'>]+))?)*\s*>/s';
+
+        if (preg_match($root, $page, $match) !== 1) {
+            return $page;
+        }
+
+        $end = strlen($match[0]);
+
+        return substr($page, 0, $end).$notice.substr($page, $end);
+    }
+
+    private static function report(Throwable $e): void
+    {
+        try {
+            Log::warning('reservationcontrol: guest notice skipped: '.$e->getMessage(), ['exception' => $e]);
+        } catch (Throwable) {
+            // Logging must not take the page down either.
+        }
     }
 }
