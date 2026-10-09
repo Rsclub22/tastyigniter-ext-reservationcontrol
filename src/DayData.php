@@ -63,6 +63,8 @@ class DayData
 
         $allDay = ClosureNotes::allDay($notes, $date);
 
+        $eventTimes = ClosureNotes::eventTimes($notes);
+
         // When a closure note lies over the day, all tables are occupied. The
         // usual check then reports every time as full and phone intake would be
         // closed - but that is not what the note is there for. On the phone we
@@ -85,29 +87,27 @@ class DayData
             // included: the kitchen does not distinguish where people sit.
             $taken = $maxPax === null ? [] : ClosureNotes::occupancyPerTime($date);
 
-            $occupancy = array_map(static function (string $time) use ($maxPax, $paxPerTime, $taken, $guests): array {
-                $already = (int) ($taken[$time] ?? 0);
-
-                // When a number of its own stands in the text for this sitting,
-                // it applies; otherwise the single number for all sittings.
-                $maxPax = $paxPerTime[$time] ?? $maxPax;
-
-                return [
-                    'zeit' => $time,
-                    'frei' => $maxPax === null ? 0 : max(0, $maxPax - $already),
-                    'gesamt' => $maxPax ?? 0,
-                    'freie_plaetze' => $maxPax === null ? 0 : max(0, $maxPax - $already),
-                    'passt' => $maxPax === null || $already + $guests <= $maxPax,
-                    'groesster' => 0,
-                    'raum' => null,
-                    'ohne_tisch' => true,
-                    'pax_max' => $maxPax,
-                    'pax_belegt' => $already,
-                ];
-            }, $times);
+            $occupancy = array_map(
+                static fn (string $time): array => self::peopleRow($time, $maxPax, $paxPerTime, $taken, $guests),
+                $times,
+            );
         } else {
-            $occupancy = $slots->map(function (Carbon $slot) use ($date, $tables, $realTables, $duration, $reservations, $guests, $room, $roomReservations): array {
+            // The times a note names inside its window. Phone intake takes them
+            // whether or not the note opts in online: staff are never shut out
+            // of a day by a note they wrote themselves.
+            // A selected room takes precedence, as above.
+            $phoneEvents = $room ? [] : $eventTimes;
+            $takenAtEvents = $phoneEvents === [] ? [] : ClosureNotes::occupancyPerTime($date);
+
+            $occupancy = $slots->map(function (Carbon $slot) use ($date, $tables, $realTables, $duration, $reservations, $guests, $room, $roomReservations, $phoneEvents, $takenAtEvents, $maxPax, $paxPerTime): array {
                 $at = $date->copy()->setTimeFromTimeString($slot->format('H:i'));
+
+                // At an event time people are counted, not tables - the note
+                // holds all of them, so the table logic below would call the
+                // event itself "taken".
+                if (in_array($slot->format('H:i'), $phoneEvents, true)) {
+                    return self::peopleRow($slot->format('H:i'), $maxPax, $paxPerTime, $takenAtEvents, $guests);
+                }
 
                 // When a room is chosen, only its occupancy counts - the tables
                 // are then irrelevant, and the number of persons no longer
@@ -150,30 +150,14 @@ class DayData
             // has times of its own: the storytelling evening at 17:00 stands up
             // for intake on the phone without closing the lunch service. Without
             // a table, because at that time the tables are occupied by the note.
-            if (! $room && $notes->isNotEmpty()) {
+            // Those that the schedule did not offer itself are added here.
+            if ($phoneEvents !== []) {
                 $known = array_column($occupancy, 'zeit');
-                $taken = ClosureNotes::occupancyPerTime($date);
 
-                foreach ($noteTimes as $time) {
-                    if (in_array($time, $known, true)) {
-                        continue;
+                foreach ($phoneEvents as $time) {
+                    if (! in_array($time, $known, true)) {
+                        $occupancy[] = self::peopleRow($time, $maxPax, $paxPerTime, $takenAtEvents, $guests);
                     }
-
-                    $limit = $paxPerTime[$time] ?? $maxPax;
-                    $already = (int) ($taken[$time] ?? 0);
-
-                    $occupancy[] = [
-                        'zeit' => $time,
-                        'frei' => $limit === null ? 0 : max(0, $limit - $already),
-                        'gesamt' => $limit ?? 0,
-                        'freie_plaetze' => $limit === null ? 0 : max(0, $limit - $already),
-                        'passt' => $limit === null || $already + $guests <= $limit,
-                        'groesster' => 0,
-                        'raum' => null,
-                        'ohne_tisch' => true,
-                        'pax_max' => $limit,
-                        'pax_belegt' => $already,
-                    ];
                 }
 
                 usort($occupancy, static fn (array $a, array $b): int => strcmp($a['zeit'], $b['zeit']));
@@ -198,10 +182,43 @@ class DayData
             'standort' => $location,
             'vermerke' => $notes,
             'ganztags' => $allDay,
-            'vermerkZeiten' => $noteTimes,
+            // Under an all-day note every time named in its text counts; beside
+            // the opening hours only the event times inside the window do.
+            'vermerkZeiten' => $allDay->isNotEmpty() ? $noteTimes : $eventTimes,
             'maxPax' => $maxPax,
             'paxJeZeit' => $paxPerTime,
             'trennzeit' => self::resolveSplitTime(null),
+        ];
+    }
+
+    /**
+     * One row of the occupancy list for a time that is counted in people, not
+     * tables: capacity is the guest cap of the notes, minus what is already
+     * booked at that time. Rooms count too - the kitchen does not distinguish
+     * where people sit.
+     *
+     * @param  array<string, int>  $paxPerTime  caps that stand in the text for a single time
+     * @param  array<string, int>  $taken  persons already booked per time
+     */
+    private static function peopleRow(string $time, ?int $maxPax, array $paxPerTime, array $taken, int $guests): array
+    {
+        $already = (int) ($taken[$time] ?? 0);
+
+        // When a number of its own stands in the text for this sitting, it
+        // applies; otherwise the single number for all sittings.
+        $limit = $paxPerTime[$time] ?? $maxPax;
+
+        return [
+            'zeit' => $time,
+            'frei' => $limit === null ? 0 : max(0, $limit - $already),
+            'gesamt' => $limit ?? 0,
+            'freie_plaetze' => $limit === null ? 0 : max(0, $limit - $already),
+            'passt' => $limit === null || $already + $guests <= $limit,
+            'groesster' => 0,
+            'raum' => null,
+            'ohne_tisch' => true,
+            'pax_max' => $limit,
+            'pax_belegt' => $already,
         ];
     }
 

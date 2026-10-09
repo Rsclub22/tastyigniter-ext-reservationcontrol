@@ -234,6 +234,43 @@ class Extension extends BaseExtension
             $reservation->addReservationTables($table ? [$table->getKey()] : []);
         });
 
+        // The reservation extension's own observer assigns a table whenever
+        // none is attached after a save and "assign tables automatically" is on
+        // - and an empty list from phone intake does not keep it out. At an
+        // event time that is wrong: no table is placed there, the paper plan
+        // does it. So once it has run, take back what it assigned on its own.
+        // Registered after the boot, so that this listener runs after the
+        // observer's; a table chosen by hand (attribute set and not empty) and
+        // tables a reservation already had are never touched.
+        $this->app->booted(function (): void {
+            $kept = [];
+
+            Reservation::saving(function (Reservation $reservation) use (&$kept): void {
+                $kept[spl_object_id($reservation)] = $reservation->exists
+                    ? $reservation->tables()->pluck('dining_tables.id')->all()
+                    : [];
+            });
+
+            Reservation::saved(function (Reservation $reservation) use (&$kept): void {
+                $before = $kept[spl_object_id($reservation)] ?? [];
+                unset($kept[spl_object_id($reservation)]);
+
+                try {
+                    if (! empty($reservation->getAttributes()['tables'] ?? [])
+                        || ! ClosureNotes::isEventBooking($reservation)) {
+                        return;
+                    }
+
+                    $now = $reservation->tables()->pluck('dining_tables.id')->all();
+                    if ($now !== $before) {
+                        $reservation->addReservationTables($before);
+                    }
+                } catch (Throwable) {
+                    // Leave the reservation as the observer made it.
+                }
+            });
+        });
+
         // The manager is only resolved per request, so redirecting it in boot()
         // happens early enough - and certainly after register() of the
         // reservation extension, which originally binds the singleton.
