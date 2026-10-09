@@ -2,24 +2,22 @@
 
 declare(strict_types=1);
 
+use Igniter\Flame\Database\Model;
+use Igniter\System\Actions\SettingsModel;
 use SamPoyigi\Testbench\TestCase;
-use Wagnersnetz\ReservationControl\Models\Settings;
 
-uses(TestCase::class)->in(__DIR__);
-
-/**
- * Give the Settings model a clean slate.
- *
- * Testbench builds a new application (and event dispatcher) for every test, but
- * Flame remembers per process that a model class already registered its
- * fetch/save event hooks (Model::$eventsBooted). From the second test on, the
- * hooks are missing from the new dispatcher: reads never fill the settings
- * values and saves insert an empty row (SQLSTATE 4025). Production boots once
- * per process, so it is not affected.
- */
-function resetSettingsState(): void
-{
-    Settings::flushEventListeners();
-    Settings::clearBootedModels();
-    Settings::clearInternalCache();
-}
+// Testbench builds a new application (and event dispatcher) for every test, but
+// Flame remembers per process which model classes already registered their
+// fetch/save event hooks (Model::$eventsBooted). From the second test on those
+// hooks are missing from the new dispatcher, for EVERY Flame model, not only
+// Settings: afterFetch/beforeSave handlers silently do not run (for Settings
+// that shows up as empty reads and SQLSTATE 4025 on save). Production boots
+// once per process and is not affected. Reset it for every test.
+uses(TestCase::class)->in(__DIR__)->beforeEach(function (): void {
+    // flushEventListeners() would instantiate the abstract base class, so reset the flag directly.
+    (static function (): void {
+        static::$eventsBooted = [];
+    })->bindTo(null, Model::class)();
+    Model::clearBootedModels();
+    SettingsModel::clearInternalCache();
+});

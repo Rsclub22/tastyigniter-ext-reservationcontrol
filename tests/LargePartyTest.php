@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 use Igniter\Local\Classes\WorkingSchedule;
 use Igniter\Local\Models\Location;
+use Illuminate\Support\Facades\DB;
 use Wagnersnetz\ReservationControl\LargePartyBookingManager;
 use Wagnersnetz\ReservationControl\Models\Settings;
 
-// Settings keeps instances in a static cache and Flame registers the model's
-// fetch/save hooks once per process; see resetSettingsState() in Pest.php.
-beforeEach(function (): void {
-    resetSettingsState();
-});
 afterEach(fn () => Settings::clearInternalCache());
 
 /** Store through the real API (what the admin form calls) and re-read from the database. */
@@ -133,14 +129,16 @@ it('offers the large-party window on all seven weekdays by default', function ()
 
     expect($schedule->isOpenOn('saturday'))->toBeTrue()
         ->and($schedule->isOpenOn('sunday'))->toBeTrue()
-        ->and((string) $schedule->forDay('monday'))->toContain('10:00');
+        ->and((string) $schedule->forDay('monday'))->toContain('10:00')->toContain('22:00')->not->toContain('12:00')
+        ->and((string) $schedule->forDay('sunday'))->toContain('10:00')->toContain('22:00');
 });
 
 it('offers the large-party window only on open weekdays when the switch is off', function (): void {
     storeSetting('large_party_all_weekdays', false);
     $schedule = managerFor(25)->getSchedule([0, 5]);
 
-    expect($schedule->isOpenOn('friday'))->toBeTrue()
+    // Open days offer the large-party window, not the ordinary 12:00-14:00.
+    expect((string) $schedule->forDay('friday'))->toContain('10:00')->toContain('22:00')->not->toContain('12:00')
         ->and($schedule->isClosedOn('saturday'))->toBeTrue()
         ->and($schedule->isClosedOn('sunday'))->toBeTrue();
 });
@@ -157,4 +155,54 @@ it('uses the configured threshold to decide who is a large party', function (): 
 
     expect(managerFor(8)->isLargeParty())->toBeTrue()
         ->and(managerFor(7)->isLargeParty())->toBeFalse();
+});
+
+/**
+ * One table that seats 30 and one reservation on it from 18:00 to 20:00, so a party
+ * of 25 fits that table in principle (otherwise the check returns early either way).
+ */
+function bookTheOnlyTable(): void
+{
+    $areaId = DB::table('dining_areas')->insertGetId(['location_id' => 1, 'name' => 'Gastraum']);
+    $tableId = DB::table('dining_tables')->insertGetId([
+        'dining_area_id' => $areaId, 'name' => 'Lange Tafel', 'min_capacity' => 1,
+        'max_capacity' => 30, 'is_combo' => 0, 'is_enabled' => 1,
+    ]);
+    $reservationId = DB::table('reservations')->insertGetId([
+        'location_id' => 1, 'table_id' => $tableId, 'guest_num' => 4, 'first_name' => 'A', 'last_name' => 'B',
+        'email' => 'a@example.com', 'reserve_date' => '2030-06-10', 'reserve_time' => '18:00:00',
+        'reserve_datetime' => '2030-06-10 18:00:00', 'duration' => 120, 'status_id' => 1,
+        'ip_address' => '', 'user_agent' => '', 'created_at' => now(), 'updated_at' => now(),
+    ]);
+    DB::table('reservation_tables')->insert([
+        'reservation_id' => $reservationId, 'dining_table_id' => $tableId, 'table_id' => $tableId,
+    ]);
+}
+
+/** @return array<int, string> the slots reported as taken for a party of 25 on the fixture day */
+function takenSlotsForLargeParty(): array
+{
+    $date = Carbon\Carbon::parse('2030-06-10');
+    $slots = collect(['18:30', '21:00'])->map(fn (string $t) => $date->copy()->setTimeFromTimeString($t));
+
+    $manager = managerFor(25);
+    $location = (new ReflectionProperty($manager, 'location'))->getValue($manager);
+    $location->location_id = 1;
+    $location->shouldReceive('getReservationStayTime')->andReturn(120);
+
+    return $manager->isTimeslotsFullyBookedOn($slots, $date, 25);
+}
+
+it('skips the table check for large parties by default', function (): void {
+    bookTheOnlyTable();
+
+    expect(takenSlotsForLargeParty())->toBe([]);
+});
+
+it('runs the table check for large parties when the switch is off', function (): void {
+    bookTheOnlyTable();
+    storeSetting('large_party_skip_table_check', false);
+
+    // 18:30 overlaps the booking on the only table that seats 25; 21:00 does not.
+    expect(takenSlotsForLargeParty())->toBe(['2030-06-10 18:30:00']);
 });
