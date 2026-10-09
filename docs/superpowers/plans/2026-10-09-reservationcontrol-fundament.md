@@ -31,6 +31,80 @@
 
 ---
 
+### Task 0: Reproduzierbare Entwicklungsumgebung
+
+Auf dem Entwicklungsrechner gibt es weder PHP noch Composer noch eine Datenbank; `php:8.3-cli` bringt nur `pdo_sqlite` mit und keine der von TastyIgniter verlangten Erweiterungen. Ohne diese Task kann **keine** andere Task ihre Tests ausführen.
+
+**Files:**
+- Create: `Dockerfile.dev`, `docker-compose.dev.yml`, `docs/development.md`
+- Modify: `.gitignore`
+
+**Interfaces:**
+- Consumes: nichts
+- Produces: ein Befehl, mit dem jede spätere Task ihre Tests fährt. Er wird in `docs/development.md` dokumentiert und lautet (oder ist gleichwertig):
+  `docker compose -f docker-compose.dev.yml run --rm php vendor/bin/pest`
+
+- [ ] **Step 1: Anforderungen feststellen**
+
+Nachsehen, was `tastyigniter/core` an PHP-Erweiterungen verlangt und was `sampoyigi/testbench` als Datenbank erwartet:
+
+```bash
+docker run --rm php:8.3-cli sh -c '
+  php -r "echo file_get_contents(\"https://repo.packagist.org/p2/tastyigniter/core.json\");"' \
+  | head -c 3000
+```
+
+Alternativ `composer show tastyigniter/core` nach dem ersten erfolgreichen `composer install`. Festhalten, ob die Tests mit SQLite laufen oder MariaDB brauchen — davon hängt ab, ob `docker-compose.dev.yml` einen zweiten Dienst bekommt.
+
+- [ ] **Step 2: `Dockerfile.dev` schreiben**
+
+Basis `php:8.3-cli`. Erforderlich sind mindestens die Erweiterungen, die Step 1 ermittelt hat; erfahrungsgemäß `intl`, `zip`, `gd`, `bcmath`, `pdo_mysql` (nur falls MariaDB nötig). Composer kommt aus dem offiziellen Image:
+
+```dockerfile
+FROM php:8.3-cli
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git unzip libicu-dev libzip-dev libpng-dev libjpeg-dev libfreetype-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-freetype \
+    && docker-php-ext-install -j"$(nproc)" intl zip gd bcmath pdo_mysql \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+WORKDIR /app
+```
+
+- [ ] **Step 3: `docker-compose.dev.yml` schreiben**
+
+Dienst `php` mit Build aus `Dockerfile.dev`, Bind-Mount des Repos nach `/app`, und — nur falls Step 1 es verlangt — ein Dienst `db` mit `mariadb:10.11`, Datenbank `testbench`, Benutzer `forge`. Die Umgebungsvariablen aus `phpunit.xml.dist` müssen dazu passen.
+
+- [ ] **Step 4: `.gitignore` ergänzen**
+
+`vendor/`, `.phpunit.cache/`, `composer.lock` stehen schon drin. Ergänzen: nichts Weiteres nötig — die Compose-Dateien gehören ins Repo, sie sind Teil der Entwicklungsanleitung.
+
+- [ ] **Step 5: Beweisen, dass es läuft**
+
+```bash
+docker compose -f docker-compose.dev.yml build php
+docker compose -f docker-compose.dev.yml run --rm php php --version
+docker compose -f docker-compose.dev.yml run --rm php composer --version
+docker compose -f docker-compose.dev.yml run --rm php php -r 'print_r(PDO::getAvailableDrivers());'
+```
+
+Expected: PHP 8.3.x, Composer 2.x, und die in Step 1 festgestellten Treiber.
+
+- [ ] **Step 6: `docs/development.md` schreiben**
+
+Enthält: Voraussetzung (Docker), der Bauschritt, der Testbefehl, der Pint-Befehl, der PHPStan-Befehl. Ausdrücklich vermerken, dass diese Dateien **nur der Entwicklung dienen** und für den Betrieb der Erweiterung nicht gebraucht werden.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add -A
+git commit -m "Add a reproducible Docker development toolchain"
+```
+
+**Hinweis für alle folgenden Tasks:** Jeder Aufruf von `composer`, `vendor/bin/pest`, `vendor/bin/pint` und `vendor/bin/phpstan` im Plan läuft ab jetzt durch diesen Container, also als `docker compose -f docker-compose.dev.yml run --rm php <befehl>`.
+
+---
+
 ### Task 1: Paketgerüst, das bootet und sich testet
 
 **Files:**
