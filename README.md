@@ -88,9 +88,18 @@ read for a few German keywords (this parser is German-only on purpose):
 | Public form (Orange) | telephone required, telephone pattern, recognising fields |
 | Mail | Reply-To address and name |
 | Security | admin login limit, trusted proxies, internal networks |
-| Reserved¹ | online cut-off hours, apply guest limit online, online booking on blocked days |
+| Online booking | cut-off hours before closing², apply guest limit online³ |
 
 ¹ Stored but without effect yet.
+
+² Time slots *less than* N hours before closing are closed online; a slot exactly N hours
+before closing stays bookable. 0 turns it off. Not applied to large parties or phone intake.
+
+³ The cap from a closure note (`max N PAX`); a booking that exactly reaches the cap still fits.
+Not applied to large parties or phone intake.
+
+Blocked days can be left open for online booking per day (checkbox in the block form, optional
+`online` flag on the API).
 
 ## Development
 
