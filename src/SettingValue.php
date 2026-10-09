@@ -112,7 +112,12 @@ final class SettingValue
             return true;
         }
 
-        return preg_match('/^\d{1,3}$/', $mask) === 1 && (int) $mask <= ($isV6 ? 128 : 32) && IpUtils::checkIp($address, $entry);
+        // Mask 0 (0.0.0.0/0, ::/0) matches every address on earth: as an allow-list
+        // entry it would silently open the internal pages to the internet.
+        return preg_match('/^\d{1,3}$/', $mask) === 1
+            && (int) $mask !== 0
+            && (int) $mask <= ($isV6 ? 128 : 32)
+            && IpUtils::checkIp($address, $entry);
     }
 
     /**

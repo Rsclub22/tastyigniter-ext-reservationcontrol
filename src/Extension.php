@@ -46,8 +46,12 @@ class Extension extends BaseExtension
     /** Fields by which the rule set of the public booking form is recognised. */
     public const array DEFAULT_PUBLIC_FORM_FIELDS = ['firstName', 'lastName', 'telephone'];
 
-    /** Used whenever the settings hold no usable value. */
-    public const array DEFAULT_TRUSTED_PROXIES = ['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
+    /**
+     * Used whenever the settings hold no usable value: no proxy is trusted. A
+     * wide default would let any host on the same private network spoof
+     * X-Forwarded-For and so defeat the IP gate of the internal pages.
+     */
+    public const array DEFAULT_TRUSTED_PROXIES = [];
 
     public const string DEFAULT_ADMIN_RATE_LIMIT = '30,1';
 
@@ -77,11 +81,12 @@ class Extension extends BaseExtension
         $this->registerInternalRoutes();
         $this->registerInternalApiRoutes();
 
-        // The application runs behind Caddy. Without trusted proxies it sees
-        // the bridge address of the container for every visitor - all visitors
-        // then share one throttling counter and the admin login locks itself
-        // out after a few calls. The container is bound to 127.0.0.1 only, so
-        // it is reachable exclusively through the proxy.
+        // Behind a reverse proxy the application sees the proxy's address for
+        // every visitor: all visitors then share one throttling counter and the
+        // admin login locks itself out after a few calls. Operators behind a
+        // proxy therefore list it in the trusted_proxies setting. The default is
+        // empty - trusting a whole private range would let any host in it spoof
+        // X-Forwarded-For.
         TrustProxies::at(self::trustedProxies());
 
         // TastyIgniter throttles the admin login with 6 requests per minute and

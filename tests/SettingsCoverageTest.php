@@ -36,8 +36,8 @@ it('defaults every reader to the previously hardcoded value', function (): void 
         ->and(Rooms::areaName())->toBe('Räume')
         ->and(DailySheet::maxRangeDays())->toBe(92)
         ->and(DayData::splitTime(locationId: 1))->toBe('15:00')
-        ->and(InternalNetworkOnly::allowedNetworks())->toBe(['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', 'fc00::/7'])
-        ->and(Extension::trustedProxies())->toBe(['127.0.0.1', '::1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'])
+        ->and(InternalNetworkOnly::allowedNetworks())->toBe(['127.0.0.1', '::1'])
+        ->and(Extension::trustedProxies())->toBe([])
         ->and(Extension::adminRateLimit())->toBe('30,1')
         ->and(Extension::maxNameLength())->toBe(48)
         ->and(Extension::maxEmailLength())->toBe(96)
@@ -59,7 +59,7 @@ it('keeps trusted proxies and internal networks as two independent settings', fu
     store('trusted_proxies', "203.0.113.7\n10.1.0.0/16");
 
     expect(Extension::trustedProxies())->toBe(['203.0.113.7', '10.1.0.0/16'])
-        ->and(InternalNetworkOnly::allowedNetworks())->toContain('192.168.0.0/16')
+        ->and(InternalNetworkOnly::allowedNetworks())->toBe(['127.0.0.1', '::1'])
         ->and(InternalNetworkOnly::allowedNetworks())->not->toContain('203.0.113.7');
 
     store('internal_allowed_networks', '198.51.100.0/24');
@@ -76,6 +76,30 @@ it('lets the middleware follow the configured networks', function (): void {
 
     expect($pass('198.51.100.9'))->toBe('ok')
         ->and(fn () => $pass('192.168.1.5'))->toThrow(NotFoundHttpException::class);
+});
+
+it('refuses an allow-list entry that matches every address', function (string $entry): void {
+    store('internal_allowed_networks', $entry);
+    store('trusted_proxies', $entry);
+
+    expect(InternalNetworkOnly::allowedNetworks())->toBe(InternalNetworkOnly::DEFAULT_ALLOWED)
+        ->and(Extension::trustedProxies())->toBe(Extension::DEFAULT_TRUSTED_PROXIES);
+
+    // One such entry among valid ones rejects the whole list, as any malformed entry does.
+    store('internal_allowed_networks', "192.168.0.0/16\n{$entry}");
+    expect(InternalNetworkOnly::allowedNetworks())->toBe(InternalNetworkOnly::DEFAULT_ALLOWED);
+})->with(['IPv4 /0' => '0.0.0.0/0', 'IPv6 /0' => '::/0']);
+
+it('does not let a private-network host in by default', function (): void {
+    $pass = fn (string $ip) => (new InternalNetworkOnly)->handle(
+        Request::create('/intern', server: ['REMOTE_ADDR' => $ip]),
+        fn () => response('ok'),
+    )->getContent();
+
+    expect($pass('127.0.0.1'))->toBe('ok')
+        ->and($pass('::1'))->toBe('ok')
+        ->and(fn () => $pass('192.168.1.5'))->toThrow(NotFoundHttpException::class)
+        ->and(fn () => $pass('10.1.2.3'))->toThrow(NotFoundHttpException::class);
 });
 
 it('honours a configured value', function (): void {
@@ -137,7 +161,7 @@ it('declares the settings whose behaviour arrives in a later plan', function ():
         ->and($fields['allow_online_on_blocked_default']['default'])->toBeFalse();
 });
 
-it('has a form default that equals the reader default for every field', function (): void {
+it('has a form default that equals the reader default for the fields compared', function (): void {
     $fields = (require __DIR__.'/../resources/models/settings.php')['form']['fields'];
 
     // split_time and admin_rate_limit must stay empty in the form: a saved form

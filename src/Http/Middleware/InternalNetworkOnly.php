@@ -24,20 +24,17 @@ use Wagnersnetz\ReservationControl\SettingValue;
  */
 class InternalNetworkOnly
 {
-    /** Private networks per RFC 1918 plus loopback and the VPN network of the Pi. */
-    public const array DEFAULT_ALLOWED = [
-        '127.0.0.1',
-        '::1',
-        '10.0.0.0/8',
-        '172.16.0.0/12',
-        '192.168.0.0/16',
-        'fc00::/7',
-    ];
+    /**
+     * Loopback only. Private ranges (10/8, 172.16/12, 192.168/16, fc00::/7) must
+     * be opted into via the setting: the page is unauthenticated, and any other
+     * host on a shared private network would otherwise reach it.
+     */
+    public const array DEFAULT_ALLOWED = ['127.0.0.1', '::1'];
 
     /**
      * Who may see the internal pages. A separate question from whom the
      * application believes about a request's origin (trusted proxies), even
-     * though both lists are the same by default.
+     * though both are narrow by default.
      *
      * @return list<string>
      */
