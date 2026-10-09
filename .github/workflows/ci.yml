@@ -31,7 +31,11 @@ jobs:
 
     services:
       db:
-        image: mariadb:10.11
+        # Docker Hub throttles unauthenticated pulls, and every run pulls this
+        # once per matrix entry - which is how a green pipeline turned into
+        # 'toomanyrequests' on a busy evening. AWS's public registry mirrors
+        # the Docker Official Images and needs no credentials.
+        image: public.ecr.aws/docker/library/mariadb:10.11
         env:
           MARIADB_DATABASE: testbench
           MARIADB_USER: forge
