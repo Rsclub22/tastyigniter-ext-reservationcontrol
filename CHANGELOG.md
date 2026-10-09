@@ -40,6 +40,11 @@
 
 ### Changed
 
+- The online time list now ends at the cut-off (`cutoff_minutes_before_closing`) instead of
+  showing greyed-out slots behind it: with 60 minutes and a 15:00 close the last offered time
+  is 14:00, with 75 minutes 13:45. Phone intake and large parties keep every slot. Only the
+  cut-off is trimmed; slots blocked by the guest cap, a closure note or table availability
+  stay visible and disabled, because they can free up.
 - The online cut-off is now in minutes: `cutoff_hours_before_closing` is renamed to
   `cutoff_minutes_before_closing` (0 to 1440; larger values count as unset). The old key is
   deliberately **not** read and nothing is converted - a stored `1` would silently turn one hour

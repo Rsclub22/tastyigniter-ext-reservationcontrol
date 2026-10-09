@@ -374,3 +374,84 @@ it('lets the booking through when the form has no running component', function (
 
     expect($validator->fails())->toBeFalse();
 });
+
+// ---- The online list ends at the cut-off -------------------------------------------
+
+/** A manager whose location opens Mondays 11:00 to $close, 15-minute slots. */
+function trimManager(int $guests, string $close = '15:00', bool $internal = false): LargePartyBookingManager
+{
+    (new ReflectionProperty(ClosureNotes::class, 'openingHours'))->setValue(null, [1 => ['11:00', $close]]);
+
+    $location = Mockery::mock(Location::class)->makePartial();
+    $location->shouldReceive('newWorkingSchedule')->andReturnUsing(function () use ($close) {
+        $schedule = WorkingSchedule::create([0, 3000], ['monday' => [['11:00', $close]]]);
+        $schedule->setType('opening');
+
+        return $schedule;
+    });
+    $location->location_id = 1;
+    $location->shouldReceive('getReservationStayTime')->andReturn(120);
+    $location->shouldReceive('getReservationInterval')->andReturn(15);
+    $location->shouldReceive('getReservationLeadTime')->andReturn(0);
+    $location->shouldReceive('getSettings')->andReturn(1);
+    $location->shouldReceive('getMinReservationAdvanceTime')->andReturn(0);
+    $location->shouldReceive('getMaxReservationAdvanceTime')->andReturn(3000);
+
+    $manager = new LargePartyBookingManager;
+    $manager->useLocation($location);
+
+    return $manager->forceGuestCount($guests)->allowSameDay($internal);
+}
+
+/** @return array<int, string> the offered times (H:i) on the fixture day */
+function offeredTimes(LargePartyBookingManager $manager): array
+{
+    return collect($manager->makeTimeSlots(Carbon::parse(LIMITS_DAY)))
+        ->map(fn ($slot): string => $slot->format('H:i'))->values()->all();
+}
+
+it('ends the online list at the cut-off and keeps the boundary slot', function (int $minutes, string $last): void {
+    limitSetting('cutoff_minutes_before_closing', $minutes);
+
+    $times = offeredTimes(trimManager(2));
+
+    expect(end($times))->toBe($last)->and($times)->toContain($last);
+})->with([
+    '60 minutes before a 15:00 close' => [60, '14:00'],
+    '75 minutes' => [75, '13:45'],
+]);
+
+it('leaves the list unchanged with the cut-off at 0', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 0);
+
+    expect(offeredTimes(trimManager(2)))->toBe(offeredTimes(trimManager(2, internal: true)))
+        ->and(offeredTimes(trimManager(2)))->toContain('14:45');
+});
+
+it('keeps every slot on the internal path and for large parties', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 60);
+
+    expect(offeredTimes(trimManager(2, internal: true)))->toContain('14:45')
+        ->and(offeredTimes(trimManager(25)))->toContain('14:45');
+});
+
+it('trims only the cut-off: cap and note slots stay in the list, reported as fully booked', function (): void {
+    noteWithCapAndEightGuests();
+    limitSetting('apply_max_guests_online', true);
+    limitSetting('cutoff_minutes_before_closing', 60);
+
+    $manager = trimManager(3, '22:00');
+    $times = offeredTimes($manager);
+
+    expect($times)->toContain('19:00')->and(end($times))->toBe('21:00')
+        ->and(fullyBooked($manager, 3, ['19:00']))->toBe(['19:00']);
+});
+
+it('keeps the slots of a plain closure note in the list, reported as fully booked', function (): void {
+    noteWithCapAndEightGuests('Märchenabend', noteTime: '18:00:00');
+
+    $manager = trimManager(2, '22:00');
+
+    expect(offeredTimes($manager))->toContain('12:00')
+        ->and(fullyBooked($manager, 2, ['12:00']))->toBe(['12:00']);
+});

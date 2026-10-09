@@ -129,6 +129,62 @@ class LargePartyBookingManager extends BookingManager
     }
 
     /**
+     * The moment after which online booking is closed on $date, or null without a
+     * cut-off (setting 0, or no opening hours that day). The ONE place the cut-off
+     * is decided: makeTimeSlots() uses it to stop the list, onlineLimited() to
+     * report the same slots as full.
+     */
+    private static function cutoffFrom(Carbon $date): ?Carbon
+    {
+        // 1440 = one day; a larger value is a typo and counts as unset.
+        $cutoffMinutes = SettingValue::int('cutoff_minutes_before_closing', 0, 0, 1440);
+        if ($cutoffMinutes <= 0 || ($hours = ClosureNotes::openingHours($date)) === null) {
+            return null;
+        }
+
+        $closing = $date->copy()->setTimeFromTimeString($hours[1]);
+        // Closing after midnight: 18:00 - 01:00 closes on the next day.
+        if ($hours[1] <= $hours[0]) {
+            $closing->addDay();
+        }
+
+        return $closing->subMinutes($cutoffMinutes);
+    }
+
+    /** A slot strictly after the cut-off moment; one exactly on it stays bookable. */
+    private static function isPastCutoff(Carbon $at, ?Carbon $cutoffFrom): bool
+    {
+        return $cutoffFrom !== null && $at->gt($cutoffFrom);
+    }
+
+    /**
+     * Online, the list of times ends at the cut-off instead of showing greyed-out
+     * buttons behind it. ONLY the cut-off is trimmed, deliberately: it is
+     * structural - that time is never bookable that day, for anyone, whatever
+     * changes, so showing it gains nothing. The guest cap, a closure note's window
+     * and table availability are situational (they depend on what is booked and can
+     * free up while the guest looks at the page); those stay in the list and are
+     * reported as fully booked, so the guest sees the time exists. Phone intake
+     * (internal) and large parties keep every slot: staff take late bookings.
+     */
+    public function makeTimeSlots(Carbon $date, $interval = null, $lead = null)
+    {
+        $slots = parent::makeTimeSlots($date, $interval, $lead);
+
+        if ($this->internal || $this->isLargeParty() || ! $slots instanceof Collection) {
+            return $slots;
+        }
+
+        $cutoffFrom = self::cutoffFrom($date);
+
+        return $cutoffFrom === null
+            ? $slots
+            : $slots->reject(fn ($slot): bool => self::isPastCutoff(
+                $date->copy()->setTimeFromTimeString($slot->format('H:i')), $cutoffFrom,
+            ));
+    }
+
+    /**
      * Slots that online booking closes although a table would be free: too
      * close to closing time, or beyond the guest cap of a closure note.
      *
@@ -136,22 +192,11 @@ class LargePartyBookingManager extends BookingManager
      */
     private function onlineLimited(Collection $timeslots, Carbon $date, int $guests): array
     {
-        // 1440 = one day; a larger value is a typo and counts as unset.
-        $cutoffMinutes = SettingValue::int('cutoff_minutes_before_closing', 0, 0, 1440);
         $applyCap = SettingValue::flag('apply_max_guests_online', false);
+        $cutoffFrom = self::cutoffFrom($date);
 
-        if ($cutoffMinutes === 0 && ! $applyCap) {
+        if ($cutoffFrom === null && ! $applyCap) {
             return [];
-        }
-
-        $cutoffFrom = null;
-        if ($cutoffMinutes > 0 && ($hours = ClosureNotes::openingHours($date)) !== null) {
-            $closing = $date->copy()->setTimeFromTimeString($hours[1]);
-            // Closing after midnight: 18:00 - 01:00 closes on the next day.
-            if ($hours[1] <= $hours[0]) {
-                $closing->addDay();
-            }
-            $cutoffFrom = $closing->subMinutes($cutoffMinutes);
         }
 
         $maxPax = null;
@@ -167,7 +212,7 @@ class LargePartyBookingManager extends BookingManager
         return $timeslots
             ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
             ->filter(function (Carbon $at) use ($cutoffFrom, $applyCap, $maxPax, $maxPerTime, $occupancy, $guests): bool {
-                if ($cutoffFrom !== null && $at->gt($cutoffFrom)) {
+                if (self::isPastCutoff($at, $cutoffFrom)) {
                     return true;
                 }
 
