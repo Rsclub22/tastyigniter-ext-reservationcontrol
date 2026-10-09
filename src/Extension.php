@@ -200,9 +200,9 @@ class Extension extends BaseExtension
                 return;
             }
 
-            $reservation->addReservationTables(
-                TableAllocator::allocateTables($reservation, TableAllocator::maxTablesPerReservation()),
-            );
+            $table = TableAllocator::allocate($reservation);
+
+            $reservation->addReservationTables($table ? [$table->getKey()] : []);
         });
 
         // The manager is only resolved per request, so redirecting it in boot()
@@ -277,16 +277,14 @@ class Extension extends BaseExtension
      */
     public static function adminRateLimit(): string
     {
-        $valid = static fn (mixed $v): bool => is_string($v) && preg_match('/^[1-9]\d{0,5},[1-9]\d{0,4}$/', $v) === 1;
+        // Whitespace around the parts is tolerated ("30, 1"), as it always was.
+        $normalise = static fn (mixed $v): ?string => is_string($v) && preg_match('/^\s*([1-9]\d{0,5})\s*,\s*([1-9]\d{0,4})\s*$/', $v, $m) === 1
+            ? $m[1].','.$m[2]
+            : null;
 
-        $stored = SettingValue::stored('admin_rate_limit');
-        if ($valid($stored)) {
-            return $stored;
-        }
-
-        $env = env('ADMIN_RATE_LIMIT');
-
-        return $valid($env) ? $env : self::DEFAULT_ADMIN_RATE_LIMIT;
+        return $normalise(SettingValue::stored('admin_rate_limit'))
+            ?? $normalise(env('ADMIN_RATE_LIMIT'))
+            ?? self::DEFAULT_ADMIN_RATE_LIMIT;
     }
 
     /** No default: without a configured address no Reply-To is set. */

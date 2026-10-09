@@ -280,7 +280,7 @@ return [
     'label_turnover_buffer_minutes' => 'Turnover buffer (minutes)',
     'help_turnover_buffer_minutes' => 'How long a table stays blocked after a reservation ends. 0 means it is free right away.',
     'label_max_tables_per_reservation' => 'Most tables per reservation',
-    'help_max_tables_per_reservation' => '1: one table or one combination. Higher: if none suffices, several free single tables may be joined up to this number.',
+    'help_max_tables_per_reservation' => 'Not yet effective: the value is stored but changes nothing. Reservations always get one table or one combination.',
     'label_rooms_area_name' => 'Dining area for rooms',
     'help_rooms_area_name' => 'Name of the dining area that holds the rooms. Its tables are never assigned automatically.',
     'label_max_name_length' => 'Longest name (characters)',

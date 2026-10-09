@@ -35,7 +35,12 @@ class TableAllocator
         return SettingValue::int('turnover_buffer_minutes', self::DEFAULT_TURNOVER_BUFFER_MINUTES, min: 0);
     }
 
-    /** How many single tables one reservation may be spread over. */
+    /**
+     * How many tables one reservation may be spread over. NOT YET EFFECTIVE:
+     * the allocator assigns one table or one combination, whatever this says.
+     * A multi-table algorithm needs its own design (min_capacity, adjacency,
+     * best fit).
+     */
     public static function maxTablesPerReservation(): int
     {
         return SettingValue::int('max_tables_per_reservation', self::DEFAULT_MAX_TABLES_PER_RESERVATION);
@@ -149,52 +154,6 @@ class TableAllocator
         );
 
         return self::pick($free, max(1, (int) $reservation->guest_num));
-    }
-
-    /**
-     * Ids of the tables for a reservation. One table (or one combination) as
-     * before; only when none suffices and more than one table is allowed, free
-     * single tables are added, largest first, until the party fits.
-     *
-     * @return list<int>
-     */
-    public static function allocateTables(Reservation $reservation, int $maxTables): array
-    {
-        $table = self::allocate($reservation);
-        if ($table) {
-            return [$table->getKey()];
-        }
-
-        if ($maxTables < 2) {
-            return [];
-        }
-
-        $locationId = (int) $reservation->location_id;
-        $at = $reservation->reservation_datetime;
-        $guests = max(1, (int) $reservation->guest_num);
-
-        $free = self::freeAt(
-            self::candidates($locationId),
-            $at,
-            (int) $reservation->duration,
-            self::reservationsOn($locationId, $at, (int) $reservation->getKey()),
-        )->where('is_combo', 0)->sortByDesc('max_capacity')->values();
-
-        $chosen = [];
-        $seats = 0;
-        foreach ($free as $candidate) {
-            if (count($chosen) >= $maxTables) {
-                break;
-            }
-            $chosen[] = $candidate->getKey();
-            $seats += (int) $candidate->max_capacity;
-            if ($seats >= $guests) {
-                return $chosen;
-            }
-        }
-
-        // Not enough seats within the limit: leave the reservation unassigned.
-        return [];
     }
 
     /** Reservations of a day that count towards the occupancy. */

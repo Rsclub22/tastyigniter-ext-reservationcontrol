@@ -3,9 +3,6 @@
 declare(strict_types=1);
 
 use Igniter\Reservation\Http\Requests\ReservationRequest;
-use Igniter\Reservation\Models\DiningArea;
-use Igniter\Reservation\Models\DiningTable;
-use Igniter\Reservation\Models\Reservation;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Mail\Message;
@@ -16,6 +13,8 @@ use Symfony\Component\Mime\Email;
 use Wagnersnetz\ReservationControl\DailySheet;
 use Wagnersnetz\ReservationControl\DayData;
 use Wagnersnetz\ReservationControl\Extension;
+use Wagnersnetz\ReservationControl\Http\Controllers\InternalApiController;
+use Wagnersnetz\ReservationControl\Http\Controllers\InternalBookingController;
 use Wagnersnetz\ReservationControl\Http\Middleware\InternalNetworkOnly;
 use Wagnersnetz\ReservationControl\Models\Settings;
 use Wagnersnetz\ReservationControl\Rooms;
@@ -141,7 +140,10 @@ it('declares the settings whose behaviour arrives in a later plan', function ():
 it('has a form default that equals the reader default for every field', function (): void {
     $fields = (require __DIR__.'/../resources/models/settings.php')['form']['fields'];
 
-    expect($fields['split_time']['default'])->toBe(DayData::splitTime(1))
+    // split_time and admin_rate_limit must stay empty in the form: a saved form
+    // writes every field, and a stored value would shadow the env fallback.
+    expect($fields['split_time']['default'])->toBe('')
+        ->and($fields['admin_rate_limit']['default'])->toBe('')
         ->and($fields['max_print_range_days']['default'])->toBe(DailySheet::maxRangeDays())
         ->and($fields['turnover_buffer_minutes']['default'])->toBe(TableAllocator::turnoverBufferMinutes())
         ->and($fields['max_tables_per_reservation']['default'])->toBe(TableAllocator::maxTablesPerReservation())
@@ -149,7 +151,6 @@ it('has a form default that equals the reader default for every field', function
         ->and($fields['max_name_length']['default'])->toBe(Extension::maxNameLength())
         ->and($fields['max_email_length']['default'])->toBe(Extension::maxEmailLength())
         ->and($fields['max_phone_length']['default'])->toBe(Extension::maxPhoneLength())
-        ->and($fields['admin_rate_limit']['default'])->toBe(Extension::adminRateLimit())
         ->and($fields['trusted_proxies']['default'])->toBe(implode("\n", Extension::trustedProxies()))
         ->and($fields['internal_allowed_networks']['default'])->toBe(implode("\n", InternalNetworkOnly::allowedNetworks()))
         ->and($fields['reply_to_address']['default'])->toBe('');
@@ -220,27 +221,6 @@ it('applies the phone rule and length limits through the real validator', functi
     expect($phone('+49'))->toBeFalse()->and($phone('0123'))->toBeTrue();
 });
 
-it('spreads a party over several free tables only up to the configured limit', function (): void {
-    $area = DiningArea::create(['name' => 'Hall', 'location_id' => 99]);
-    $make = fn (string $name, int $cap) => DiningTable::create([
-        'name' => $name, 'dining_area_id' => $area->getKey(), 'min_capacity' => 1, 'max_capacity' => $cap,
-        'extra_capacity' => 0, 'is_combo' => 0, 'is_enabled' => 1, 'priority' => 1, 'shape' => 'rectangle',
-    ]);
-    $a = $make('A', 4);
-    $b = $make('B', 4);
-    $c = $make('C', 4);
-
-    $reservation = new Reservation;
-    $reservation->location_id = 99;
-    $reservation->guest_num = 10;
-    $reservation->reserve_date = '2030-01-01';
-    $reservation->reserve_time = '19:00:00';
-
-    expect(TableAllocator::allocateTables($reservation, 1))->toBe([])
-        ->and(TableAllocator::allocateTables($reservation, 2))->toBe([])
-        ->and(TableAllocator::allocateTables($reservation, 3))->toHaveCount(3);
-});
-
 it('feeds the configured length limits into the back-office and API rules', function (): void {
     $rulesFor = function (): object {
         $holder = (object) ['rules' => [], 'messages' => []];
@@ -277,4 +257,55 @@ it('keeps honouring the environment variables running installations already use'
     } finally {
         unset($_ENV['ADMIN_RATE_LIMIT'], $_ENV['MAIL_REPLY_TO_ADDRESS'], $_ENV['INTERN_DRUCK_TRENNZEIT']);
     }
+});
+
+it('accepts a rate limit written with spaces, as before', function (): void {
+    $_ENV['ADMIN_RATE_LIMIT'] = '30, 1';
+
+    try {
+        expect(Extension::adminRateLimit())->toBe('30,1');
+        $_ENV['ADMIN_RATE_LIMIT'] = '12 , 3';
+        expect(Extension::adminRateLimit())->toBe('12,3');
+        $_ENV['ADMIN_RATE_LIMIT'] = '0,1';
+        expect(Extension::adminRateLimit())->toBe('30,1');
+    } finally {
+        unset($_ENV['ADMIN_RATE_LIMIT']);
+    }
+});
+
+it('sends no Reply-To header through the mail listener when nothing is configured', function (): void {
+    $_ENV['MAIL_REPLY_TO_ADDRESS'] = '';
+    $email = new Email;
+    event(new MessageSending($email, []));
+    unset($_ENV['MAIL_REPLY_TO_ADDRESS']);
+
+    expect($email->getReplyTo())->toBe([]);
+});
+
+it('cuts the printed range at the configured number of days in both controllers', function (): void {
+    store('max_print_range_days', 5);
+    $query = ['modus' => 'zeitraum', 'von' => '2030-03-01', 'bis' => '2030-06-30'];
+
+    $api = (new InternalApiController)
+        ->dailySheet(Request::create('/', 'GET', ['von' => '2030-03-01', 'bis' => '2030-06-30']))
+        ->getData(true);
+
+    $controller = new InternalBookingController;
+    $range = (new ReflectionMethod($controller, 'dateRange'))->invoke($controller, Request::create('/', 'GET', $query));
+
+    expect($api['von'])->toBe('2030-03-01')
+        ->and($api['bis'])->toBe('2030-03-05')
+        ->and($range[0]->toDateString())->toBe('2030-03-01')
+        ->and($range[1]->toDateString())->toBe('2030-03-05');
+
+    // 5 days (03-01..03-05) fit; 6 days are one too many. Both controllers.
+    $apiTo = fn (string $to) => (new InternalApiController)
+        ->dailySheet(Request::create('/', 'GET', ['von' => '2030-03-01', 'bis' => $to]))->getData(true)['bis'];
+    $webTo = fn (string $to) => (new ReflectionMethod($controller, 'dateRange'))
+        ->invoke($controller, Request::create('/', 'GET', ['modus' => 'zeitraum', 'von' => '2030-03-01', 'bis' => $to]))[1]->toDateString();
+
+    expect($apiTo('2030-03-05'))->toBe('2030-03-05')
+        ->and($apiTo('2030-03-06'))->toBe('2030-03-05')
+        ->and($webTo('2030-03-05'))->toBe('2030-03-05')
+        ->and($webTo('2030-03-06'))->toBe('2030-03-05');
 });

@@ -1,7 +1,6 @@
 <?php
 
 use Wagnersnetz\ReservationControl\DailySheet;
-use Wagnersnetz\ReservationControl\DayData;
 use Wagnersnetz\ReservationControl\Extension;
 use Wagnersnetz\ReservationControl\Http\Middleware\InternalNetworkOnly;
 use Wagnersnetz\ReservationControl\Rooms;
@@ -65,8 +64,8 @@ return [
                 'label' => 'lang:reservationcontrol::default.label_split_time',
                 'comment' => 'lang:reservationcontrol::default.help_split_time',
                 'type' => 'text',
-                'placeholder' => 'HH:MM',
-                'default' => DayData::DEFAULT_SPLIT_TIME,
+                'placeholder' => '15:00',
+                'default' => '',
             ],
             'max_print_range_days' => [
                 'label' => 'lang:reservationcontrol::default.label_max_print_range_days',
@@ -140,7 +139,7 @@ return [
                 'comment' => 'lang:reservationcontrol::default.help_admin_rate_limit',
                 'type' => 'text',
                 'placeholder' => '30,1',
-                'default' => Extension::DEFAULT_ADMIN_RATE_LIMIT,
+                'default' => '',
             ],
             'trusted_proxies' => [
                 'label' => 'lang:reservationcontrol::default.label_trusted_proxies',

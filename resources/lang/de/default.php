@@ -280,7 +280,7 @@ return [
     'label_turnover_buffer_minutes' => 'Puffer zwischen Gästen (Minuten)',
     'help_turnover_buffer_minutes' => 'Wie lange ein Tisch nach Ende einer Reservierung gesperrt bleibt. 0 heißt: sofort wieder frei.',
     'label_max_tables_per_reservation' => 'Höchstzahl Tische je Reservierung',
-    'help_max_tables_per_reservation' => '1: ein Tisch oder eine Kombination. Höher: reicht keiner, dürfen bis zu dieser Zahl freie Einzeltische zusammengelegt werden.',
+    'help_max_tables_per_reservation' => 'Noch ohne Wirkung: Der Wert wird gespeichert, ändert aber nichts. Reservierungen erhalten immer einen Tisch oder eine Kombination.',
     'label_rooms_area_name' => 'Bereich für Räume',
     'help_rooms_area_name' => 'Name des Bereichs, in dem die Räume stehen. Seine Tische werden nie automatisch vergeben.',
     'label_max_name_length' => 'Längster Name (Zeichen)',
