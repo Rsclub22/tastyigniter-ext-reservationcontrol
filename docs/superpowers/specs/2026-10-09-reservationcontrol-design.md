@@ -1,4 +1,4 @@
-# rsclub22.reservationcontrol — Entwurf
+# wagnersnetz.reservationcontrol — Entwurf
 
 Stand: 2026-10-09
 
@@ -13,7 +13,7 @@ Paket unter GPLv3 veröffentlicht — Ziel ist der TastyIgniter-Marktplatz.
 | Migration | Der Tresen-Server zieht auf die verallgemeinerte Fassung um. **Eine** Codebasis. |
 | Sprache | Sprachdateien deutsch **und** englisch, Code vollständig englisch (inkl. Kommentare). |
 | Zuschnitt | Einstellungen herausziehen **und** die sprachgebundenen Mechanismen ersetzen. |
-| Erweiterungscode | `rsclub22.reservationcontrol` |
+| Erweiterungscode | `wagnersnetz.reservationcontrol` |
 | Einstellungsbreite | Maximal — auch das, was heute stillschweigend feststeht. |
 | Sperrvermerke/Tage | **Zwei** getrennte Modelle und Masken, nicht eines für beides. |
 | Lizenz | `GPL-3.0-or-later` |
@@ -42,10 +42,10 @@ Konstanten faktisch PHP ≥ 8.3 verlangt.
 ## Paket
 
 ```
-rsclub22/ti-ext-reservationcontrol
-  Code       rsclub22.reservationcontrol
-  Namensraum Rsclub22\ReservationControl\
-  Verzeichnis extensions/rsclub22/reservationcontrol/
+wagnersnetz/ti-ext-reservationcontrol
+  Code       wagnersnetz.reservationcontrol
+  Namensraum Wagnersnetz\ReservationControl\
+  Verzeichnis extensions/wagnersnetz/reservationcontrol/
   type       tastyigniter-extension
 ```
 
@@ -73,7 +73,7 @@ Die drei `src/Extension.php.bak-*` werden nicht übernommen.
 
 Ein Settings-Modell nach dem Muster der Kern-Erweiterungen:
 `src/Models/Settings.php` (`$implement = [SettingsModel::class]`,
-`$settingsCode = 'rsclub22_reservationcontrol_settings'`,
+`$settingsCode = 'wagnersnetz_reservationcontrol_settings'`,
 `$settingsFieldsConfig = 'settings'`), Felder in `resources/models/settings.php`,
 Beschriftungen als `lang:`-Schlüssel.
 

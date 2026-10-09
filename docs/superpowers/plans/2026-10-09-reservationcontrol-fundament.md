@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Aus dem hausinternen `wagnersnetz/ti-ext-reservetweaks` wird ein eigenständiges, englischsprachiges, vollständig konfigurierbares und themeunabhängiges Paket `rsclub22/ti-ext-reservationcontrol` — **ohne dass sich das Verhalten der laufenden Installation ändert**.
+**Goal:** Aus dem hausinternen `wagnersnetz/ti-ext-reservetweaks` wird ein eigenständiges, englischsprachiges, vollständig konfigurierbares und themeunabhängiges Paket `wagnersnetz/ti-ext-reservationcontrol` — **ohne dass sich das Verhalten der laufenden Installation ändert**.
 
 **Architecture:** Das vorhandene Paket wird unverändert portiert und dann in vier beweisbar verhaltensneutralen Schritten umgebaut: Namensraum, englische Klassennamen, Sprachdateien, Einstellungen statt Konstanten, Theme-Entkopplung über eine Schnittstelle. Jeder Schritt endet mit grünen Tests, die das *alte* Verhalten festhalten.
 
@@ -14,7 +14,7 @@
 
 - PHP-Untergrenze `^8.3` — der Code nutzt typisierte Konstanten (`private const array SPALTEN`).
 - Lizenz `GPL-3.0-or-later` in `composer.json` **und** als `LICENSE`-Datei.
-- Erweiterungscode `rsclub22.reservationcontrol`, Namensraum `Rsclub22\ReservationControl\`, Paket `rsclub22/ti-ext-reservationcontrol`.
+- Erweiterungscode `wagnersnetz.reservationcontrol`, Namensraum `Wagnersnetz\ReservationControl\`, Paket `wagnersnetz/ti-ext-reservationcontrol`.
 - `"type": "tastyigniter-package"` mit `extra."tastyigniter-extension"` — kanonische Form laut Generator-Stub.
 - Code vollständig englisch, **einschließlich Kommentare**. Sprachdateien `en` und `de`, beide vollständig.
 - Jede neue Einstellung hat als Vorgabe exakt den heute fest verdrahteten Wert.
@@ -112,7 +112,7 @@ git commit -m "Add a reproducible Docker development toolchain"
 
 **Interfaces:**
 - Consumes: nichts
-- Produces: Klasse `Rsclub22\ReservationControl\Extension extends BaseExtension`
+- Produces: Klasse `Wagnersnetz\ReservationControl\Extension extends BaseExtension`
 
 - [ ] **Step 1: Verzeichnis und Repo anlegen**
 
@@ -127,7 +127,7 @@ mkdir -p src tests resources/lang/en resources/lang/de resources/models docs dat
 
 ```json
 {
-    "name": "rsclub22/ti-ext-reservationcontrol",
+    "name": "wagnersnetz/ti-ext-reservationcontrol",
     "type": "tastyigniter-package",
     "description": "Large-party rules, closure notes, internal booking pages and a JSON API for TastyIgniter reservations.",
     "license": "GPL-3.0-or-later",
@@ -149,11 +149,11 @@ mkdir -p src tests resources/lang/en resources/lang/de resources/models docs dat
     "suggest": {
         "tastyigniter/ti-theme-orange": "Detects the guest count a visitor typed into the public booking form."
     },
-    "autoload": { "psr-4": { "Rsclub22\\ReservationControl\\": "src/" } },
-    "autoload-dev": { "psr-4": { "Rsclub22\\ReservationControl\\Tests\\": "tests/" } },
+    "autoload": { "psr-4": { "Wagnersnetz\\ReservationControl\\": "src/" } },
+    "autoload-dev": { "psr-4": { "Wagnersnetz\\ReservationControl\\Tests\\": "tests/" } },
     "extra": {
         "tastyigniter-extension": {
-            "code": "rsclub22.reservationcontrol",
+            "code": "wagnersnetz.reservationcontrol",
             "name": "Reservation Control",
             "icon": { "class": "fa fa-calendar-check", "backgroundColor": "#8C2B2B", "color": "#FFFFFF" }
         }
@@ -191,7 +191,7 @@ uses(TestCase::class)->in(__DIR__);
 declare(strict_types=1);
 
 use Igniter\System\Classes\BaseExtension;
-use Rsclub22\ReservationControl\Extension;
+use Wagnersnetz\ReservationControl\Extension;
 
 it('registers as a TastyIgniter extension', function(): void {
     expect(new Extension(app()))->toBeInstanceOf(BaseExtension::class);
@@ -201,7 +201,7 @@ it('registers as a TastyIgniter extension', function(): void {
 - [ ] **Step 6: Test laufen lassen, Fehlschlag bestätigen**
 
 Run: `composer install && vendor/bin/pest --filter=ExtensionTest`
-Expected: FAIL — `Class "Rsclub22\ReservationControl\Extension" not found`
+Expected: FAIL — `Class "Wagnersnetz\ReservationControl\Extension" not found`
 
 - [ ] **Step 7: Minimale `src/Extension.php`**
 
@@ -210,7 +210,7 @@ Expected: FAIL — `Class "Rsclub22\ReservationControl\Extension" not found`
 
 declare(strict_types=1);
 
-namespace Rsclub22\ReservationControl;
+namespace Wagnersnetz\ReservationControl;
 
 use Igniter\System\Classes\BaseExtension;
 
@@ -249,8 +249,8 @@ Der gesamte vorhandene Code wandert herüber, **nur** mit getauschtem Namensraum
 - Modify: `src/Extension.php` (vollständige Fassung aus dem Bestand)
 
 **Interfaces:**
-- Consumes: `Rsclub22\ReservationControl\Extension` aus Task 1
-- Produces: alle Bestandsklassen unter `Rsclub22\ReservationControl\*` — `Sperrvermerke`, `BlockedDates`, `Tagesblatt`, `Tagesdaten`, `Annahme`, `Rooms`, `TableAllocator`, `BookingContext`, `LargePartyBookingManager`, `Api\StandardIncludes`, `Erfassung\{Anlegen,Eingabe,Tischwahl}`, `Http\Controllers\{InternApi,InternalBooking}`, `Http\Middleware\InternalNetworkOnly`, `Console\{ReservierungErfassen,ReservierungImport}`
+- Consumes: `Wagnersnetz\ReservationControl\Extension` aus Task 1
+- Produces: alle Bestandsklassen unter `Wagnersnetz\ReservationControl\*` — `Sperrvermerke`, `BlockedDates`, `Tagesblatt`, `Tagesdaten`, `Annahme`, `Rooms`, `TableAllocator`, `BookingContext`, `LargePartyBookingManager`, `Api\StandardIncludes`, `Erfassung\{Anlegen,Eingabe,Tischwahl}`, `Http\Controllers\{InternApi,InternalBooking}`, `Http\Middleware\InternalNetworkOnly`, `Console\{ReservierungErfassen,ReservierungImport}`
 
 - [ ] **Step 1: Quelle kopieren, Sicherungsdateien auslassen**
 
@@ -266,7 +266,7 @@ test -z "$(find src -name '*.bak-*')" && echo "keine Sicherungsdateien"
 
 ```bash
 grep -rl 'Wagnersnetz\\ReserveTweaks' src/ resources/ \
-  | xargs sed -i 's/Wagnersnetz\\\\ReserveTweaks/Rsclub22\\\\ReservationControl/g; s/Wagnersnetz\\ReserveTweaks/Rsclub22\\ReservationControl/g'
+  | xargs sed -i 's/Wagnersnetz\\\\ReserveTweaks/Wagnersnetz\\\\ReservationControl/g; s/Wagnersnetz\\ReserveTweaks/Wagnersnetz\\ReservationControl/g'
 grep -rn 'Wagnersnetz' src/ resources/ || echo "kein Rest"
 ```
 
@@ -292,20 +292,20 @@ declare(strict_types=1);
 it('loads every ported class', function(string $class): void {
     expect(class_exists($class))->toBeTrue();
 })->with([
-    \Rsclub22\ReservationControl\Sperrvermerke::class,
-    \Rsclub22\ReservationControl\BlockedDates::class,
-    \Rsclub22\ReservationControl\Tagesblatt::class,
-    \Rsclub22\ReservationControl\Tagesdaten::class,
-    \Rsclub22\ReservationControl\Rooms::class,
-    \Rsclub22\ReservationControl\TableAllocator::class,
-    \Rsclub22\ReservationControl\LargePartyBookingManager::class,
-    \Rsclub22\ReservationControl\Http\Controllers\InternApi::class,
-    \Rsclub22\ReservationControl\Http\Controllers\InternalBooking::class,
+    \Wagnersnetz\ReservationControl\Sperrvermerke::class,
+    \Wagnersnetz\ReservationControl\BlockedDates::class,
+    \Wagnersnetz\ReservationControl\Tagesblatt::class,
+    \Wagnersnetz\ReservationControl\Tagesdaten::class,
+    \Wagnersnetz\ReservationControl\Rooms::class,
+    \Wagnersnetz\ReservationControl\TableAllocator::class,
+    \Wagnersnetz\ReservationControl\LargePartyBookingManager::class,
+    \Wagnersnetz\ReservationControl\Http\Controllers\InternApi::class,
+    \Wagnersnetz\ReservationControl\Http\Controllers\InternalBooking::class,
 ]);
 
 it('keeps the data-bearing markers untouched for now', function(): void {
-    expect(\Rsclub22\ReservationControl\Erfassung\Anlegen::MARKER)->toBe('reservetweaks-cli')
-        ->and(\Rsclub22\ReservationControl\BlockedDates::SETTING)->toBe('reservetweaks_blocked_dates');
+    expect(\Wagnersnetz\ReservationControl\Erfassung\Anlegen::MARKER)->toBe('reservetweaks-cli')
+        ->and(\Wagnersnetz\ReservationControl\BlockedDates::SETTING)->toBe('reservetweaks_blocked_dates');
 });
 ```
 
@@ -531,7 +531,7 @@ git commit -m "Add English and German language resources"
 
 **Interfaces:**
 - Consumes: Übersetzungen aus Task 4
-- Produces: `Rsclub22\ReservationControl\Models\Settings` mit `Settings::get(string $key, mixed $default = null)`
+- Produces: `Wagnersnetz\ReservationControl\Models\Settings` mit `Settings::get(string $key, mixed $default = null)`
 
 - [ ] **Step 1: Den fehlschlagenden Test schreiben**
 
@@ -542,7 +542,7 @@ git commit -m "Add English and German language resources"
 
 declare(strict_types=1);
 
-use Rsclub22\ReservationControl\Models\Settings;
+use Wagnersnetz\ReservationControl\Models\Settings;
 
 it('stores and reads a setting', function(): void {
     Settings::set('large_party_threshold', 25);
@@ -566,7 +566,7 @@ Expected: FAIL — Klasse nicht gefunden
 
 declare(strict_types=1);
 
-namespace Rsclub22\ReservationControl\Models;
+namespace Wagnersnetz\ReservationControl\Models;
 
 use Igniter\Flame\Database\Model;
 use Igniter\System\Actions\SettingsModel;
@@ -580,7 +580,7 @@ class Settings extends Model
 {
     public array $implement = [SettingsModel::class];
 
-    public string $settingsCode = 'rsclub22_reservationcontrol_settings';
+    public string $settingsCode = 'wagnersnetz_reservationcontrol_settings';
 
     public string $settingsFieldsConfig = 'settings';
 }
@@ -600,8 +600,8 @@ public function registerSettings(): array
             'label' => 'lang:reservationcontrol::default.settings_label',
             'description' => 'lang:reservationcontrol::default.settings_description',
             'icon' => 'fa fa-calendar-check',
-            'model' => \Rsclub22\ReservationControl\Models\Settings::class,
-            'permissions' => ['Rsclub22.ReservationControl.ManageSettings'],
+            'model' => \Wagnersnetz\ReservationControl\Models\Settings::class,
+            'permissions' => ['Wagnersnetz.ReservationControl.ManageSettings'],
         ],
     ];
 }
@@ -609,7 +609,7 @@ public function registerSettings(): array
 public function registerPermissions(): array
 {
     return [
-        'Rsclub22.ReservationControl.ManageSettings' => [
+        'Wagnersnetz.ReservationControl.ManageSettings' => [
             'label' => 'lang:reservationcontrol::default.permission_manage_settings',
             'group' => 'module',
         ],
@@ -652,8 +652,8 @@ Die erste Gruppe echter Einstellungen, und die mit dem größten Schadenspotenzi
 
 declare(strict_types=1);
 
-use Rsclub22\ReservationControl\LargePartyBookingManager;
-use Rsclub22\ReservationControl\Models\Settings;
+use Wagnersnetz\ReservationControl\LargePartyBookingManager;
+use Wagnersnetz\ReservationControl\Models\Settings;
 
 it('defaults to the previous hardcoded threshold', function(): void {
     expect(LargePartyBookingManager::threshold())->toBe(20)
@@ -758,13 +758,13 @@ git commit -m "Read large-party rules from settings, keeping today's values as d
 
 declare(strict_types=1);
 
-use Rsclub22\ReservationControl\Models\Settings;
+use Wagnersnetz\ReservationControl\Models\Settings;
 
-use Rsclub22\ReservationControl\DailySheet;
-use Rsclub22\ReservationControl\DayData;
-use Rsclub22\ReservationControl\Http\Middleware\InternalNetworkOnly;
-use Rsclub22\ReservationControl\Rooms;
-use Rsclub22\ReservationControl\TableAllocator;
+use Wagnersnetz\ReservationControl\DailySheet;
+use Wagnersnetz\ReservationControl\DayData;
+use Wagnersnetz\ReservationControl\Http\Middleware\InternalNetworkOnly;
+use Wagnersnetz\ReservationControl\Rooms;
+use Wagnersnetz\ReservationControl\TableAllocator;
 
 it('defaults every reader to the previously hardcoded value', function(): void {
     expect(TableAllocator::turnoverBufferMinutes())->toBe(0)
@@ -801,8 +801,8 @@ it('declares the settings whose behaviour arrives in a later plan', function(): 
 it('applies one global setting to every location', function(): void {
     Settings::set('split_time', '14:00');
 
-    expect(\Rsclub22\ReservationControl\DayData::splitTime(locationId: 1))->toBe('14:00')
-        ->and(\Rsclub22\ReservationControl\DayData::splitTime(locationId: 2))->toBe('14:00');
+    expect(\Wagnersnetz\ReservationControl\DayData::splitTime(locationId: 1))->toBe('14:00')
+        ->and(\Wagnersnetz\ReservationControl\DayData::splitTime(locationId: 2))->toBe('14:00');
 })->note('Bewusst global. In docs/settings.md als Einschränkung festhalten.');
 ```
 
@@ -846,7 +846,7 @@ git commit -m "Move the remaining hardcoded values into settings"
 
 **Interfaces:**
 - Consumes: nichts aus früheren Tasks
-- Produces: `Rsclub22\ReservationControl\Contracts\GuestCountResolver` mit `guestCount(): ?int`; im Container gebunden
+- Produces: `Wagnersnetz\ReservationControl\Contracts\GuestCountResolver` mit `guestCount(): ?int`; im Container gebunden
 
 - [ ] **Step 1: Den fehlschlagenden Test schreiben**
 
@@ -855,9 +855,9 @@ git commit -m "Move the remaining hardcoded values into settings"
 
 declare(strict_types=1);
 
-use Rsclub22\ReservationControl\Contracts\GuestCountResolver;
-use Rsclub22\ReservationControl\LargePartyBookingManager;
-use Rsclub22\ReservationControl\Theme\NullGuestCount;
+use Wagnersnetz\ReservationControl\Contracts\GuestCountResolver;
+use Wagnersnetz\ReservationControl\LargePartyBookingManager;
+use Wagnersnetz\ReservationControl\Theme\NullGuestCount;
 
 it('reports no guest count without a theme integration', function(): void {
     app()->instance(GuestCountResolver::class, new NullGuestCount());
