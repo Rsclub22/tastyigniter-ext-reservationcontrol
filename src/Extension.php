@@ -274,11 +274,25 @@ class Extension extends BaseExtension
     private function registerOrangeValidator(): void
     {
         Validator::resolver(function ($translator, array $data, array $rules, array $messages, array $attributes) {
-            if ($this->isBookingForm($rules)) {
+            $isBookingForm = $this->isBookingForm($rules);
+            if ($isBookingForm) {
                 $rules['telephone'] = self::publicPhoneRules();
             }
 
-            return new \Illuminate\Validation\Validator($translator, $data, $rules, $messages, $attributes);
+            $validator = new \Illuminate\Validation\Validator($translator, $data, $rules, $messages, $attributes);
+
+            // A greyed-out button is not a rule: refuse a blocked slot here too.
+            // The component carries date, time and guest; the form's own data
+            // does not. Never throws, and lets the booking through when unsure.
+            if ($isBookingForm) {
+                $validator->after(function ($validator): void {
+                    if (($message = BlockedSlotGuard::blockedMessage(BookingContext::component())) !== null) {
+                        $validator->errors()->add('time', $message);
+                    }
+                });
+            }
+
+            return $validator;
         });
     }
 

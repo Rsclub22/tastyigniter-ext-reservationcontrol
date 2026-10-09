@@ -316,4 +316,5 @@ return [
     'help_guest_notice' => 'Shown above the online booking form on this day. Only used if "Guests can book online" is ticked.',
     'day_online_label' => 'Special day – open for online booking',
     'print_day_online' => 'Special day – guests can reserve online.',
+    'error_slot_blocked' => 'Online reservations are not possible at this time. Please choose another time or call us.',
 ];

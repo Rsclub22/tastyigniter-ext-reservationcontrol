@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 use Carbon\Carbon;
 use Igniter\Local\Classes\WorkingSchedule;
+use Igniter\Local\Facades\Location as LocationFacade;
 use Igniter\Local\Models\Location;
+use Igniter\Orange\Livewire\Booking;
+use Igniter\Reservation\Classes\BookingManager;
 use Igniter\Reservation\Models\Reservation;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\MessageBag;
+use Wagnersnetz\ReservationControl\BookingContext;
 use Wagnersnetz\ReservationControl\ClosureNotes;
 use Wagnersnetz\ReservationControl\LargePartyBookingManager;
 use Wagnersnetz\ReservationControl\Models\Settings;
@@ -286,4 +291,86 @@ it('returns a free slot in neither notation', function (): void {
 
     expect($result)->not->toContain(LIMITS_DAY.' 19:00:00')
         ->and($result)->not->toContain(LIMITS_DAY.' 19:00');
+});
+
+/** Runs the public booking form's validator with a running component asking for $time. */
+function bookingErrors(string $time, ?LargePartyBookingManager $manager = null, bool $withLocation = true, int $guests = 2): MessageBag
+{
+    $manager ??= limitManager($guests);
+    $location = (new ReflectionProperty($manager, 'location'))->getValue($manager);
+    $location->shouldReceive('getSettings')->andReturn(1);
+    app()->instance(BookingManager::class, $manager);
+    LocationFacade::shouldReceive('current')->andReturn($withLocation ? $location : null);
+
+    $component = (new ReflectionClass(Booking::class))->newInstanceWithoutConstructor();
+    $component->guest = $guests;
+    $component->date = LIMITS_DAY;
+    $component->time = $time;
+    BookingContext::remember($component);
+
+    try {
+        $validator = Validator::make(
+            ['firstName' => 'Anna', 'lastName' => 'Test', 'telephone' => '+49 123 456789'],
+            ['firstName' => 'required', 'lastName' => 'required', 'telephone' => 'nullable'],
+        );
+        $validator->fails();
+
+        return $validator->errors();
+    } finally {
+        BookingContext::forget($component);
+    }
+}
+
+it('rejects a submitted time inside the cut-off', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 120);
+    app()->setLocale('de');
+
+    $errors = bookingErrors('21:30');
+
+    expect($errors->has('time'))->toBeTrue()
+        ->and($errors->first('time'))->toContain('Online-Reservierung');
+});
+
+it('accepts a normal time', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 120);
+
+    expect(bookingErrors('19:00')->isEmpty())->toBeTrue();
+});
+
+it('lets the booking through when no location can be found', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 120);
+
+    expect(bookingErrors('21:30', withLocation: false)->isEmpty())->toBeTrue();
+});
+
+it('lets the booking through, and logs, when the check throws', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 120);
+    Log::shouldReceive('warning')->once()->withArgs(
+        fn (string $message): bool => str_contains($message, 'booking let through'),
+    );
+
+    $broken = new class extends LargePartyBookingManager
+    {
+        public function isTimeslotsFullyBookedOn(Collection $timeslots, Carbon $date, ?int $noOfGuest = null): array
+        {
+            throw new RuntimeException('schedule exploded');
+        }
+    };
+    $location = (new ReflectionProperty(limitManager(2), 'location'))->getValue(limitManager(2));
+    $broken->useLocation($location);
+
+    expect(bookingErrors('21:30', $broken)->isEmpty())->toBeTrue();
+});
+
+it('lets the booking through when the form has no running component', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 120);
+    $manager = limitManager(2);
+    app()->instance(BookingManager::class, $manager);
+
+    $validator = Validator::make(
+        ['firstName' => 'Anna', 'lastName' => 'Test', 'telephone' => '+49 123 456789'],
+        ['firstName' => 'required', 'lastName' => 'required', 'telephone' => 'nullable'],
+    );
+
+    expect($validator->fails())->toBeFalse();
 });
