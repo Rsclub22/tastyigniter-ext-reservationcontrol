@@ -594,6 +594,27 @@ class ClosureNotes
     }
 
     /**
+     * The event window of an opted-in note that contains this moment, as
+     * [start, end] (HH:MM) - null when there is none. Windows are those of
+     * eventPlan(), computed against the day's opening hours.
+     */
+    public static function eventWindowAt(iterable $notes, Carbon $at): ?array
+    {
+        $hours = self::openingHours($at);
+        $time = $at->format('H:i');
+
+        foreach ($notes as $note) {
+            foreach (self::eventPlan($note, $hours === null ? [] : [$hours])->windows as $window) {
+                if ($time >= $window[0] && $time < $window[1]) {
+                    return $window;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Minute spans a range list occupies. An overnight range (18:00-01:00)
      * occupies the evening and, as seen from this day, the early morning too.
      *
