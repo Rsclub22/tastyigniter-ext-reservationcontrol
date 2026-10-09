@@ -30,7 +30,7 @@ class Eingabe
     /** Erste Zahl im Text. "5 Personen" und "ca. 12" ergeben 5 bzw. 12. */
     public static function zahl(string $wert): ?int
     {
-        return preg_match('/(\d+)/', $wert, $treffer) ? (int)$treffer[1] : null;
+        return preg_match('/(\d+)/', $wert, $treffer) ? (int) $treffer[1] : null;
     }
 
     /**
@@ -50,20 +50,20 @@ class Eingabe
         }
 
         if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $wert, $t)) {
-            return self::gueltig((int)$t[1], (int)$t[2], (int)$t[3]);
+            return self::gueltig((int) $t[1], (int) $t[2], (int) $t[3]);
         }
 
         if (preg_match('#^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\.?$#', $wert, $t)) {
-            $jahr = (int)$t[3];
+            $jahr = (int) $t[3];
 
-            return self::gueltig($jahr < 100 ? $jahr + 2000 : $jahr, (int)$t[2], (int)$t[1]);
+            return self::gueltig($jahr < 100 ? $jahr + 2000 : $jahr, (int) $t[2], (int) $t[1]);
         }
 
         // Ohne Jahresangabe das naechste Vorkommen nehmen: am Telefon wird im
         // Dezember fuer den Januar gebucht, ohne das Jahr dazuzusagen.
         if (preg_match('#^(\d{1,2})[./-](\d{1,2})\.?$#', $wert, $t)) {
-            foreach ([(int)date('Y'), (int)date('Y') + 1] as $jahr) {
-                $datum = self::gueltig($jahr, (int)$t[2], (int)$t[1]);
+            foreach ([(int) date('Y'), (int) date('Y') + 1] as $jahr) {
+                $datum = self::gueltig($jahr, (int) $t[2], (int) $t[1]);
                 if ($datum !== null && $datum >= date('Y-m-d')) {
                     return $datum;
                 }
@@ -82,9 +82,9 @@ class Eingabe
         }
 
         if (preg_match('/^(\d{1,2})[:.\s]?(\d{2})$/', $wert, $t)) {
-            [$stunde, $minute] = [(int)$t[1], (int)$t[2]];
+            [$stunde, $minute] = [(int) $t[1], (int) $t[2]];
         } elseif (preg_match('/^(\d{1,2})$/', $wert, $t)) {
-            [$stunde, $minute] = [(int)$t[1], 0];
+            [$stunde, $minute] = [(int) $t[1], 0];
         } else {
             return null;
         }
@@ -132,7 +132,7 @@ class Eingabe
         $tage = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
         $zeit = strtotime($datum);
 
-        return $tage[(int)date('N', $zeit) - 1].', '.date('d.m.Y', $zeit);
+        return $tage[(int) date('N', $zeit) - 1].', '.date('d.m.Y', $zeit);
     }
 
     /** Reservierungs-Status: Name, Kurzform oder ID. */
@@ -155,7 +155,7 @@ class Eingabe
 
         $wert = trim($wert);
 
-        return (ctype_digit($wert) && in_array((int)$wert, $verfuegbar, true)) ? (int)$wert : null;
+        return (ctype_digit($wert) && in_array((int) $wert, $verfuegbar, true)) ? (int) $wert : null;
     }
 
     /** @return array<string, int> normalisierter Statusname => ID */
@@ -167,7 +167,7 @@ class Eingabe
             $liste = Status::query()
                 ->where('status_for', 'reservation')
                 ->get()
-                ->mapWithKeys(fn(Status $s): array => [self::normalisiert((string)$s->status_name) => (int)$s->getKey()])
+                ->mapWithKeys(fn (Status $s): array => [self::normalisiert((string) $s->status_name) => (int) $s->getKey()])
                 ->all();
         }
 

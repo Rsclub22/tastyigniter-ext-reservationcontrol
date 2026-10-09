@@ -34,7 +34,7 @@ class Tischwahl
     public static function ausText(string $roh, Collection $tische): array
     {
         $nachName = $tische->mapWithKeys(
-            fn(DiningTable $t): array => [Eingabe::normalisiert((string)$t->name) => (int)$t->getKey()],
+            fn (DiningTable $t): array => [Eingabe::normalisiert((string) $t->name) => (int) $t->getKey()],
         );
 
         // Erst der ganze Text als ein Name: "Tisch 1/Tisch 2" ist eine
@@ -89,21 +89,21 @@ class Tischwahl
         $belegt = [];
 
         foreach (TableAllocator::reservationsOn($locationId, $von, $ausser) as $r) {
-            if (!$von->lt($r->reservation_end_datetime) || !$bis->gt($r->reservation_datetime)) {
+            if (! $von->lt($r->reservation_end_datetime) || ! $bis->gt($r->reservation_datetime)) {
                 continue;
             }
 
             $wer = [
-                'reservierung' => (int)$r->reservation_id,
+                'reservierung' => (int) $r->reservation_id,
                 'name' => trim($r->first_name.' '.$r->last_name),
-                'zeit' => substr((string)$r->reserve_time, 0, 5),
-                'gaeste' => (int)$r->guest_num,
+                'zeit' => substr((string) $r->reserve_time, 0, 5),
+                'gaeste' => (int) $r->guest_num,
             ];
 
             // Eltern und Kinder mitsperren - sonst gilt Tisch 1 als frei,
             // waehrend die Kombination Tisch 1/Tisch 2 vergeben ist.
             foreach (TableAllocator::withRelatives($r->tables->pluck('id')) as $id) {
-                $belegt[(int)$id] ??= $wer;
+                $belegt[(int) $id] ??= $wer;
             }
         }
 
@@ -117,7 +117,7 @@ class Tischwahl
 
         foreach ($ids as $id) {
             if ($tisch = $tische->get($id)) {
-                $summe += (int)$tisch->max_capacity + (int)$tisch->extra_capacity;
+                $summe += (int) $tisch->max_capacity + (int) $tisch->extra_capacity;
             }
         }
 
@@ -132,7 +132,7 @@ class Tischwahl
         }
 
         return implode(' + ', array_map(
-            fn(int $id): string => (string)($tische->get($id)->name ?? '#'.$id),
+            fn (int $id): string => (string) ($tische->get($id)->name ?? '#'.$id),
             $ids,
         ));
     }

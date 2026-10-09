@@ -65,7 +65,7 @@ class Sperrvermerke
 
     public static function hausgroesse(): int
     {
-        return self::$hausgroesse ??= (int)DiningTable::query()
+        return self::$hausgroesse ??= (int) DiningTable::query()
             ->where('is_combo', 0)
             ->sum(DB::raw('max_capacity + extra_capacity'));
     }
@@ -74,7 +74,7 @@ class Sperrvermerke
     {
         $hausgroesse ??= self::hausgroesse();
 
-        return $hausgroesse > 0 && (int)$reservation->guest_num > $hausgroesse;
+        return $hausgroesse > 0 && (int) $reservation->guest_num > $hausgroesse;
     }
 
     /**
@@ -88,7 +88,7 @@ class Sperrvermerke
 
             if ($location = Location::query()->whereIsEnabled()->first()) {
                 foreach ($location->getWorkingHours() as $stunde) {
-                    if ($stunde->type !== 'opening' || !$stunde->status) {
+                    if ($stunde->type !== 'opening' || ! $stunde->status) {
                         continue;
                     }
 
@@ -117,17 +117,17 @@ class Sperrvermerke
      */
     public static function ganztags(Reservation $vermerk, Carbon $date): bool
     {
-        if (preg_match(self::GANZTAGS_MUSTER, (string)$vermerk->comment)) {
+        if (preg_match(self::GANZTAGS_MUSTER, (string) $vermerk->comment)) {
             return true;
         }
 
-        if (!$oeffnung = self::oeffnung($date)) {
+        if (! $oeffnung = self::oeffnung($date)) {
             return false;
         }
 
         $beginn = Carbon::parse($vermerk->reserve_time)->format('H:i');
         $ende = Carbon::parse($vermerk->reserve_time)
-            ->addMinutes(max(0, (int)$vermerk->duration))
+            ->addMinutes(max(0, (int) $vermerk->duration))
             ->format('H:i');
 
         // Ueber Mitternacht hinaus: bis zum Tagesende rechnen, sonst waere das
@@ -152,7 +152,7 @@ class Sperrvermerke
             $beginn = $at->copy()->setTimeFromTimeString(
                 Carbon::parse($vermerk->reserve_time)->format('H:i'),
             );
-            $ende = $beginn->copy()->addMinutes(max(0, (int)$vermerk->duration));
+            $ende = $beginn->copy()->addMinutes(max(0, (int) $vermerk->duration));
 
             if ($at >= $beginn && $at < $ende) {
                 return true;
@@ -166,7 +166,7 @@ class Sperrvermerke
     public static function ganztaegige(iterable $vermerke, Carbon $date): Collection
     {
         return collect($vermerke)
-            ->filter(fn(Reservation $v): bool => self::ganztags($v, $date))
+            ->filter(fn (Reservation $v): bool => self::ganztags($v, $date))
             ->values();
     }
 
@@ -177,7 +177,7 @@ class Sperrvermerke
     public static function fuerZeit(iterable $vermerke, Carbon $date, string $zeit): Collection
     {
         return collect($vermerke)
-            ->filter(fn(Reservation $v): bool => self::ganztags($v, $date)
+            ->filter(fn (Reservation $v): bool => self::ganztags($v, $date)
                 || in_array($zeit, self::zeiten([$v]), true))
             ->values();
     }
@@ -194,7 +194,7 @@ class Sperrvermerke
         return Reservation::query()
             ->with('tables')
             ->whereDate('reserve_date', $date->toDateString())
-            ->where('status_id', '!=', (int)setting('canceled_reservation_status'))
+            ->where('status_id', '!=', (int) setting('canceled_reservation_status'))
             ->where('guest_num', '>', $hausgroesse)
             ->orderBy('reserve_time')
             ->get();
@@ -216,17 +216,17 @@ class Sperrvermerke
         $zeiten = [];
 
         foreach ($vermerke as $vermerk) {
-            if (!$text = trim((string)$vermerk->comment)) {
+            if (! $text = trim((string) $vermerk->comment)) {
                 continue;
             }
 
-            if (!preg_match_all(self::ZEIT_MUSTER, $text, $treffer, PREG_SET_ORDER)) {
+            if (! preg_match_all(self::ZEIT_MUSTER, $text, $treffer, PREG_SET_ORDER)) {
                 continue;
             }
 
             foreach ($treffer as $t) {
-                $stunde = (int)$t[1];
-                $minute = isset($t[2]) ? (int)$t[2] : 0;
+                $stunde = (int) $t[1];
+                $minute = isset($t[2]) ? (int) $t[2] : 0;
 
                 if ($stunde > 23 || $minute > 59) {
                     continue;
@@ -255,16 +255,16 @@ class Sperrvermerke
         $werte = [];
 
         foreach ($vermerke as $vermerk) {
-            if (!$text = trim((string)$vermerk->comment)) {
+            if (! $text = trim((string) $vermerk->comment)) {
                 continue;
             }
 
-            if (!preg_match_all(self::PAX_MUSTER, $text, $treffer, PREG_SET_ORDER)) {
+            if (! preg_match_all(self::PAX_MUSTER, $text, $treffer, PREG_SET_ORDER)) {
                 continue;
             }
 
             foreach ($treffer as $t) {
-                $zahl = (int)($t[1] !== '' ? $t[1] : ($t[2] ?? 0));
+                $zahl = (int) ($t[1] !== '' ? $t[1] : ($t[2] ?? 0));
 
                 if ($zahl >= 1) {
                     $werte[] = $zahl;
@@ -290,14 +290,14 @@ class Sperrvermerke
 
         $reservierungen = Reservation::query()
             ->whereDate('reserve_date', $date->toDateString())
-            ->where('status_id', '!=', (int)setting('canceled_reservation_status'))
-            ->when($hausgroesse > 0, fn($q) => $q->where('guest_num', '<=', $hausgroesse))
+            ->where('status_id', '!=', (int) setting('canceled_reservation_status'))
+            ->when($hausgroesse > 0, fn ($q) => $q->where('guest_num', '<=', $hausgroesse))
             ->get(['reserve_time', 'guest_num']);
 
         $belegt = [];
         foreach ($reservierungen as $r) {
             $zeit = Carbon::parse($r->reserve_time)->format('H:i');
-            $belegt[$zeit] = ($belegt[$zeit] ?? 0) + (int)$r->guest_num;
+            $belegt[$zeit] = ($belegt[$zeit] ?? 0) + (int) $r->guest_num;
         }
 
         return $belegt;
@@ -322,7 +322,7 @@ class Sperrvermerke
         $plan = [];
 
         foreach ($vermerke as $vermerk) {
-            if (!$text = trim((string)$vermerk->comment)) {
+            if (! $text = trim((string) $vermerk->comment)) {
                 continue;
             }
 
@@ -335,18 +335,18 @@ class Sperrvermerke
 
             $zeiten = [];
             foreach ($zeitTreffer as $t) {
-                $stunde = (int)$t[1][0];
-                $minute = isset($t[2]) && $t[2][0] !== '' ? (int)$t[2][0] : 0;
+                $stunde = (int) $t[1][0];
+                $minute = isset($t[2]) && $t[2][0] !== '' ? (int) $t[2][0] : 0;
 
                 if ($stunde <= 23 && $minute <= 59) {
-                    $zeiten[] = [sprintf('%02d:%02d', $stunde, $minute), (int)$t[0][1]];
+                    $zeiten[] = [sprintf('%02d:%02d', $stunde, $minute), (int) $t[0][1]];
                 }
             }
 
             $paare = [];
             foreach ($paxTreffer as $t) {
-                $zahl = (int)($t[1][0] !== '' ? $t[1][0] : ($t[2][0] ?? 0));
-                $pos = (int)$t[0][1];
+                $zahl = (int) ($t[1][0] !== '' ? $t[1][0] : ($t[2][0] ?? 0));
+                $pos = (int) $t[0][1];
 
                 if ($zahl < 1) {
                     continue;

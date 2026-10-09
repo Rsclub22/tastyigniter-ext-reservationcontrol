@@ -6,8 +6,8 @@ namespace Wagnersnetz\ReservationControl;
 
 use Carbon\Carbon;
 use Igniter\Local\Classes\WorkingSchedule;
-use Illuminate\Support\Collection;
 use Igniter\Reservation\Classes\BookingManager;
+use Illuminate\Support\Collection;
 
 /**
  * Reservierungen laufen grundsätzlich innerhalb der Öffnungszeiten
@@ -58,7 +58,7 @@ class LargePartyBookingManager extends BookingManager
                 $this->location->getMaxReservationAdvanceTime(),
             ];
 
-        if (!$this->isLargeParty()) {
+        if (! $this->isLargeParty()) {
             return parent::getSchedule($days);
         }
 
@@ -101,7 +101,7 @@ class LargePartyBookingManager extends BookingManager
         // desselben Tages bleibt buchbar.
         if (Sperrvermerke::ganztaegige(Sperrvermerke::onDate($date), $date)->isNotEmpty()) {
             return $timeslots
-                ->map(fn($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i'))->toDateTimeString())
+                ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i'))->toDateTimeString())
                 ->values()
                 ->all();
         }
@@ -113,9 +113,9 @@ class LargePartyBookingManager extends BookingManager
         $vermerke = Sperrvermerke::onDate($date);
 
         $verplant = $vermerke->isEmpty() ? [] : $timeslots
-            ->map(fn($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
-            ->filter(fn(Carbon $at): bool => Sperrvermerke::verplant($vermerke, $at))
-            ->map(fn(Carbon $at) => $at->toDateTimeString())
+            ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
+            ->filter(fn (Carbon $at): bool => Sperrvermerke::verplant($vermerke, $at))
+            ->map(fn (Carbon $at) => $at->toDateTimeString())
             ->values()
             ->all();
 
@@ -123,8 +123,8 @@ class LargePartyBookingManager extends BookingManager
             return $verplant;
         }
 
-        $locationId = (int)$this->location->location_id;
-        $guests = max(1, (int)$noOfGuest);
+        $locationId = (int) $this->location->location_id;
+        $guests = max(1, (int) $noOfGuest);
         $candidates = TableAllocator::candidates($locationId);
 
         // Passt die Gruppe in gar keinen Tisch, waere sonst jeder Slot gesperrt -
@@ -134,14 +134,14 @@ class LargePartyBookingManager extends BookingManager
         }
 
         $reservations = TableAllocator::reservationsOn($locationId, $date);
-        $duration = (int)$this->location->getReservationStayTime();
+        $duration = (int) $this->location->getReservationStayTime();
 
         return $timeslots
-            ->map(fn($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
-            ->filter(fn(Carbon $at): bool => TableAllocator::pick(
+            ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
+            ->filter(fn (Carbon $at): bool => TableAllocator::pick(
                 TableAllocator::freeAt($candidates, $at, $duration, $reservations), $guests,
             ) === null)
-            ->map(fn(Carbon $at) => $at->toDateTimeString())
+            ->map(fn (Carbon $at) => $at->toDateTimeString())
             ->merge($verplant)
             ->unique()
             ->values()
@@ -172,6 +172,6 @@ class LargePartyBookingManager extends BookingManager
     {
         $guests = $this->forcedGuestCount ?? BookingContext::guestCount();
 
-        return !is_null($guests) && $guests >= self::LARGE_PARTY_FROM;
+        return ! is_null($guests) && $guests >= self::LARGE_PARTY_FROM;
     }
 }

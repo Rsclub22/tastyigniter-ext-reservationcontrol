@@ -26,18 +26,18 @@ class Rooms
     {
         return DiningTable::query()
             ->select('dining_tables.*')
-            ->whereHas('dining_area', fn($q) => $q->where('name', self::AREA))
+            ->whereHas('dining_area', fn ($q) => $q->where('name', self::AREA))
             ->orderBy('dining_tables.name')
             ->get();
     }
 
     public static function find(int|string|null $id): ?DiningTable
     {
-        if (!$id) {
+        if (! $id) {
             return null;
         }
 
-        return self::all()->firstWhere('id', (int)$id);
+        return self::all()->firstWhere('id', (int) $id);
     }
 
     /**
@@ -55,8 +55,8 @@ class Rooms
         return Reservation::query()
             ->with('tables')
             ->whereDate('reserve_date', $date->toDateString())
-            ->whereNotIn('status_id', [0, (int)setting('canceled_reservation_status')])
-            ->whereHas('tables', fn($q) => $q->whereIn('dining_tables.id', $roomIds))
+            ->whereNotIn('status_id', [0, (int) setting('canceled_reservation_status')])
+            ->whereHas('tables', fn ($q) => $q->whereIn('dining_tables.id', $roomIds))
             ->orderBy('reserve_time')
             ->get();
     }
@@ -65,7 +65,7 @@ class Rooms
     public static function isFreeAt(DiningTable $room, Carbon $at, Collection $reservations): bool
     {
         foreach ($reservations as $r) {
-            if (!$r->tables->pluck('id')->contains($room->id)) {
+            if (! $r->tables->pluck('id')->contains($room->id)) {
                 continue;
             }
 

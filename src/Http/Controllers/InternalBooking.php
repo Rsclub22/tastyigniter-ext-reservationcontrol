@@ -5,23 +5,20 @@ declare(strict_types=1);
 namespace Wagnersnetz\ReservationControl\Http\Controllers;
 
 use Carbon\Carbon;
+use Igniter\Admin\Models\Status;
 use Igniter\Local\Models\Location;
 use Igniter\Reservation\Classes\BookingManager;
 use Igniter\Reservation\Models\DiningTable;
-use Igniter\Admin\Models\Status;
 use Igniter\Reservation\Models\Reservation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Wagnersnetz\ReservationControl\Annahme;
 use Wagnersnetz\ReservationControl\BlockedDates;
 use Wagnersnetz\ReservationControl\Rooms;
-use Wagnersnetz\ReservationControl\Sperrvermerke;
 use Wagnersnetz\ReservationControl\Tagesblatt;
 use Wagnersnetz\ReservationControl\Tagesdaten;
-use Wagnersnetz\ReservationControl\TableAllocator;
 
 /**
  * Telefonannahme fuer Reservierungen, nur im lokalen Netz erreichbar.
@@ -43,7 +40,7 @@ class InternalBooking extends Controller
     public function index(Request $request): View
     {
         $date = $this->resolveDate($request->query('datum'));
-        $guests = max(1, (int)$request->query('gaeste', 2));
+        $guests = max(1, (int) $request->query('gaeste', 2));
         $room = Rooms::find($request->query('raum'));
 
         return view('reservationcontrol::intern', $this->pageData($date, $guests, $room, $this->angenommen($request, $date)));
@@ -63,7 +60,6 @@ class InternalBooking extends Controller
      * Ein Abschnitt ohne Reservierungen wird nicht gedruckt.
      */
     /** Obergrenze fuer den Sammeldruck - schuetzt vor einem versehentlichen Jahr. */
-
     public function printDay(Request $request): View
     {
         $trennzeit = $this->trennzeit($request->query('trennzeit'));
@@ -94,7 +90,7 @@ class InternalBooking extends Controller
             'sammeldruck' => $sammeldruck,
             'standort' => $location,
             'trennzeit' => $trennzeit,
-            'bestaetigt' => (int)setting('confirmed_reservation_status'),
+            'bestaetigt' => (int) setting('confirmed_reservation_status'),
             'status' => Status::query()->where('status_for', 'reservation')
                 ->pluck('status_name', 'status_id')->all(),
             'gedruckt' => Carbon::now(),
@@ -137,7 +133,6 @@ class InternalBooking extends Controller
         return Tagesdaten::trennzeit($raw);
     }
 
-
     public function store(Request $request): RedirectResponse
     {
         $data = $request->validate([
@@ -161,7 +156,7 @@ class InternalBooking extends Controller
         // dieselbe ist. Zwei offene Browserfenster an einem vollen
         // Weihnachtstag sind genau der Fall, in dem eine reine Anzeigegrenze
         // zu spaet kommt.
-        if ($meldung = Annahme::hoechstzahlVerletzt($datum, $data['zeit'], (int)$data['gaeste'])) {
+        if ($meldung = Annahme::hoechstzahlVerletzt($datum, $data['zeit'], (int) $data['gaeste'])) {
             return $this->zurueck($request, $datum->toDateString())
                 ->withErrors(['gaeste' => $meldung]);
         }
@@ -196,7 +191,7 @@ class InternalBooking extends Controller
         $datum = Carbon::parse($data['datum'])->toDateString();
         $offen = Reservation::query()
             ->whereDate('reserve_date', $datum)
-            ->whereNotIn('status_id', [0, (int)setting('canceled_reservation_status')])
+            ->whereNotIn('status_id', [0, (int) setting('canceled_reservation_status')])
             ->count();
 
         // Einen Tag zu sperren, an dem schon Gaeste erwartet werden, ist fast
@@ -210,7 +205,7 @@ class InternalBooking extends Controller
             ]);
         }
 
-        BlockedDates::block($datum, trim((string)($data['grund'] ?? '')));
+        BlockedDates::block($datum, trim((string) ($data['grund'] ?? '')));
 
         return $this->zurueck($request, $datum)->with('hinweis', sprintf(
             '%s ist gesperrt – an diesem Tag sind keine Reservierungen mehr möglich.',
@@ -241,7 +236,7 @@ class InternalBooking extends Controller
     /** Gerade angenommene Reservierung aus ?neu=... - nur vom gezeigten Tag. */
     private function angenommen(Request $request, Carbon $date): ?Reservation
     {
-        if (!$id = (int)$request->query('neu')) {
+        if (! $id = (int) $request->query('neu')) {
             return null;
         }
 
@@ -255,7 +250,6 @@ class InternalBooking extends Controller
     {
         return Tagesdaten::fuer($date, $guests, $room, $neu);
     }
-
 
     private function resolveDate(?string $raw): Carbon
     {

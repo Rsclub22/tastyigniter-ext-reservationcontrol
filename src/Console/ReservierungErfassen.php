@@ -29,9 +29,9 @@ class ReservierungErfassen extends Command
 
     public function handle(): int
     {
-        $this->locationId = (int)$this->option('location');
+        $this->locationId = (int) $this->option('location');
 
-        if (!Location::find($this->locationId)) {
+        if (! Location::find($this->locationId)) {
             $this->error(sprintf('Standort %d gibt es nicht.', $this->locationId));
 
             return self::FAILURE;
@@ -77,12 +77,12 @@ class ReservierungErfassen extends Command
         ];
 
         [$daten['first_name'], $daten['last_name']] = $this->fragName();
-        $daten['telephone'] = (string)$this->ask('  Telefon', '');
-        $daten['email'] = (string)$this->ask('  E-Mail', '');
-        $daten['duration'] = Eingabe::zahl((string)$this->ask('  Dauer in Minuten (leer = Standard)', ''));
+        $daten['telephone'] = (string) $this->ask('  Telefon', '');
+        $daten['email'] = (string) $this->ask('  E-Mail', '');
+        $daten['duration'] = Eingabe::zahl((string) $this->ask('  Dauer in Minuten (leer = Standard)', ''));
         $daten['table_ids'] = $this->fragTische($daten);
         $daten['status_id'] = $this->fragStatus();
-        $daten['comment'] = (string)$this->ask('  Kommentar', '');
+        $daten['comment'] = (string) $this->ask('  Kommentar', '');
         $daten['occasion_id'] = null;
 
         while (true) {
@@ -139,28 +139,28 @@ class ReservierungErfassen extends Command
                 $daten['reserve_time'] = $this->fragZeit($daten['reserve_time']);
                 break;
             case 'Personen':
-                $daten['guest_num'] = $this->fragPersonen((string)$daten['guest_num']);
+                $daten['guest_num'] = $this->fragPersonen((string) $daten['guest_num']);
                 break;
             case 'Name':
                 [$daten['first_name'], $daten['last_name']] = $this->fragName($daten);
                 break;
             case 'Telefon':
-                $daten['telephone'] = (string)$this->ask('  Telefon', $daten['telephone']);
+                $daten['telephone'] = (string) $this->ask('  Telefon', $daten['telephone']);
                 break;
             case 'E-Mail':
-                $daten['email'] = (string)$this->ask('  E-Mail', $daten['email']);
+                $daten['email'] = (string) $this->ask('  E-Mail', $daten['email']);
                 break;
             case 'Tische':
                 $daten['table_ids'] = $this->fragTische($daten, $daten['table_ids']);
                 break;
             case 'Dauer':
-                $daten['duration'] = Eingabe::zahl((string)$this->ask('  Dauer in Minuten (leer = Standard)', (string)($daten['duration'] ?? '')));
+                $daten['duration'] = Eingabe::zahl((string) $this->ask('  Dauer in Minuten (leer = Standard)', (string) ($daten['duration'] ?? '')));
                 break;
             case 'Status':
                 $daten['status_id'] = $this->fragStatus();
                 break;
             case 'Kommentar':
-                $daten['comment'] = (string)$this->ask('  Kommentar', (string)($daten['comment'] ?? ''));
+                $daten['comment'] = (string) $this->ask('  Kommentar', (string) ($daten['comment'] ?? ''));
                 break;
         }
 
@@ -194,20 +194,20 @@ class ReservierungErfassen extends Command
         $nr = 0;
 
         foreach ($this->tische as $id => $t) {
-            $nummern[++$nr] = (int)$id;
+            $nummern[++$nr] = (int) $id;
 
             $zeilen[] = [
-                (in_array((int)$id, $vorauswahl, true) ? '»' : ' ').$nr,
+                (in_array((int) $id, $vorauswahl, true) ? '»' : ' ').$nr,
                 $t->name,
                 $t->min_capacity.'–'.($t->max_capacity + $t->extra_capacity),
                 match (true) {
-                    isset($belegt[(int)$id]) => sprintf(
+                    isset($belegt[(int) $id]) => sprintf(
                         'belegt: %s %s (%d P.)',
-                        $belegt[(int)$id]['name'] ?: '?',
-                        $belegt[(int)$id]['zeit'],
-                        $belegt[(int)$id]['gaeste'],
+                        $belegt[(int) $id]['name'] ?: '?',
+                        $belegt[(int) $id]['zeit'],
+                        $belegt[(int) $id]['gaeste'],
                     ),
-                    !$t->is_enabled => 'deaktiviert',
+                    ! $t->is_enabled => 'deaktiviert',
                     default => 'frei',
                 },
             ];
@@ -220,7 +220,7 @@ class ReservierungErfassen extends Command
             : implode(',', array_keys(array_intersect($nummern, $vorauswahl)));
 
         while (true) {
-            $eingabe = (string)$this->ask('  Tische (Nummern oder Namen, mehrere mit Komma; "-" = ohne Tisch)', $vorgabe);
+            $eingabe = (string) $this->ask('  Tische (Nummern oder Namen, mehrere mit Komma; "-" = ohne Tisch)', $vorgabe);
 
             if ($eingabe === '' || $eingabe === '-'
                 || in_array(Eingabe::normalisiert($eingabe), ['ohne', 'kein', 'keine', 'keiner', 'nein'], true)) {
@@ -235,8 +235,8 @@ class ReservierungErfassen extends Command
             $rest = [];
 
             foreach (preg_split('/\s*[,;+]\s*|\s+/', trim($eingabe)) ?: [] as $teil) {
-                if (ctype_digit($teil) && isset($nummern[(int)$teil])) {
-                    $ids[] = $nummern[(int)$teil];
+                if (ctype_digit($teil) && isset($nummern[(int) $teil])) {
+                    $ids[] = $nummern[(int) $teil];
                 } elseif ($teil !== '') {
                     $rest[] = $teil;
                 }
@@ -286,7 +286,7 @@ class ReservierungErfassen extends Command
                     ));
                 }
 
-                if (!$this->tische->get($id)->is_enabled) {
+                if (! $this->tische->get($id)->is_enabled) {
                     $this->warn(sprintf('  %s ist im Tischplan deaktiviert.', $this->tische->get($id)->name));
                 }
             }
@@ -301,20 +301,20 @@ class ReservierungErfassen extends Command
 
     private function tischeAendern(): void
     {
-        if (!$zuordnung = $this->liste()) {
+        if (! $zuordnung = $this->liste()) {
             return;
         }
 
-        $eingabe = trim((string)$this->ask('  Welche Reservierung? (Nr oder #ID)', ''));
+        $eingabe = trim((string) $this->ask('  Welche Reservierung? (Nr oder #ID)', ''));
         if ($eingabe === '') {
             return;
         }
 
         $id = str_starts_with($eingabe, '#')
-            ? (int)substr($eingabe, 1)
-            : ($zuordnung[(int)$eingabe] ?? (int)$eingabe);
+            ? (int) substr($eingabe, 1)
+            : ($zuordnung[(int) $eingabe] ?? (int) $eingabe);
 
-        if (!$r = Reservation::with('tables')->find($id)) {
+        if (! $r = Reservation::with('tables')->find($id)) {
             $this->error(sprintf('  Reservierung #%d nicht gefunden.', $id));
 
             return;
@@ -325,22 +325,22 @@ class ReservierungErfassen extends Command
             '  <options=bold>#%d  %s %s  %s  %d Personen</>',
             $r->reservation_id,
             Eingabe::datumLang($r->reserve_date->format('Y-m-d')),
-            substr((string)$r->reserve_time, 0, 5),
+            substr((string) $r->reserve_time, 0, 5),
             trim($r->first_name.' '.$r->last_name),
             $r->guest_num,
         ));
         $this->line('  aktuell: '.Tischwahl::namen(
-            $r->tables->pluck('id')->map(fn($v): int => (int)$v)->all(),
+            $r->tables->pluck('id')->map(fn ($v): int => (int) $v)->all(),
             $this->tische,
         ));
 
         $neu = $this->fragTische([
             'reserve_date' => $r->reserve_date->format('Y-m-d'),
-            'reserve_time' => substr((string)$r->reserve_time, 0, 5),
-            'duration' => (int)$r->duration,
-            'guest_num' => (int)$r->guest_num,
-            'reservation_id' => (int)$r->reservation_id,
-        ], $r->tables->pluck('id')->map(fn($v): int => (int)$v)->all());
+            'reserve_time' => substr((string) $r->reserve_time, 0, 5),
+            'duration' => (int) $r->duration,
+            'guest_num' => (int) $r->guest_num,
+            'reservation_id' => (int) $r->reservation_id,
+        ], $r->tables->pluck('id')->map(fn ($v): int => (int) $v)->all());
 
         $r->addReservationTables($neu);
 
@@ -370,21 +370,21 @@ class ReservierungErfassen extends Command
         $zeilen = [];
 
         foreach ($reservierungen as $i => $r) {
-            $zuordnung[$i + 1] = (int)$r->reservation_id;
+            $zuordnung[$i + 1] = (int) $r->reservation_id;
 
             $zeilen[] = [
                 $i + 1,
                 Eingabe::datumLang($r->reserve_date->format('Y-m-d')),
-                substr((string)$r->reserve_time, 0, 5),
+                substr((string) $r->reserve_time, 0, 5),
                 $r->guest_num,
                 trim($r->first_name.' '.$r->last_name),
                 // Eine Gesellschaft kann neun Tische haben - ungekuerzt zieht
                 // eine einzige Zeile die ganze Tabelle in die Breite.
                 mb_strimwidth(
-                    Tischwahl::namen($r->tables->pluck('id')->map(fn($v): int => (int)$v)->all(), $this->tische),
+                    Tischwahl::namen($r->tables->pluck('id')->map(fn ($v): int => (int) $v)->all(), $this->tische),
                     0, 38, '…',
                 ),
-                $namen[(int)$r->status_id] ?? '',
+                $namen[(int) $r->status_id] ?? '',
             ];
         }
 
@@ -399,7 +399,7 @@ class ReservierungErfassen extends Command
     private function fragDatum(string $vorgabe = ''): string
     {
         while (true) {
-            $eingabe = (string)$this->ask('  Datum (TT.MM.JJJJ, "heute", "morgen")', $vorgabe);
+            $eingabe = (string) $this->ask('  Datum (TT.MM.JJJJ, "heute", "morgen")', $vorgabe);
 
             if ($datum = Eingabe::datum($eingabe)) {
                 $this->line('       <fg=gray>'.Eingabe::datumLang($datum).'</>');
@@ -414,7 +414,7 @@ class ReservierungErfassen extends Command
     private function fragZeit(string $vorgabe = ''): string
     {
         while (true) {
-            $eingabe = (string)$this->ask('  Uhrzeit (z. B. 18:30)', $vorgabe);
+            $eingabe = (string) $this->ask('  Uhrzeit (z. B. 18:30)', $vorgabe);
 
             if ($zeit = Eingabe::zeit($eingabe)) {
                 return $zeit;
@@ -427,7 +427,7 @@ class ReservierungErfassen extends Command
     private function fragPersonen(string $vorgabe = ''): int
     {
         while (true) {
-            $zahl = Eingabe::zahl((string)$this->ask('  Personen', $vorgabe));
+            $zahl = Eingabe::zahl((string) $this->ask('  Personen', $vorgabe));
 
             if ($zahl !== null && $zahl > 0) {
                 return $zahl;
@@ -443,7 +443,7 @@ class ReservierungErfassen extends Command
         $vorgabe = trim(($daten['first_name'] ?? '').' '.($daten['last_name'] ?? ''));
 
         while (true) {
-            [$vor, $nach] = Eingabe::name((string)$this->ask('  Name ("Hans Müller" oder "Müller, Hans")', $vorgabe));
+            [$vor, $nach] = Eingabe::name((string) $this->ask('  Name ("Hans Müller" oder "Müller, Hans")', $vorgabe));
 
             if ($vor !== '' || $nach !== '') {
                 return [$vor, $nach];

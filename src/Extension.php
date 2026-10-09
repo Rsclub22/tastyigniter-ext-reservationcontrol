@@ -5,26 +5,26 @@ declare(strict_types=1);
 namespace Wagnersnetz\ReservationControl;
 
 use Igniter\Api\ApiResources\Requests\ReservationRequest as ApiReservationRequest;
+use Igniter\Local\Events\WorkingScheduleCreatedEvent;
 use Igniter\Orange\Livewire\Booking;
 use Igniter\Reservation\Classes\BookingManager;
 use Igniter\Reservation\Http\Requests\ReservationRequest;
 use Igniter\Reservation\Models\Reservation;
+use Igniter\System\Classes\BaseExtension;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Mail\Events\MessageSending;
-use Illuminate\Support\Facades\Event;
-use Igniter\Local\Events\WorkingScheduleCreatedEvent;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Routing\Events\RouteMatched;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Validator;
+use Livewire\Livewire;
+use Symfony\Component\Mime\Address;
 use Wagnersnetz\ReservationControl\Api\StandardIncludes;
 use Wagnersnetz\ReservationControl\Console\ReservierungErfassen;
 use Wagnersnetz\ReservationControl\Console\ReservierungImport;
-use Wagnersnetz\ReservationControl\Http\Controllers\InternApi;
 use Wagnersnetz\ReservationControl\Http\Controllers\InternalBooking;
+use Wagnersnetz\ReservationControl\Http\Controllers\InternApi;
 use Wagnersnetz\ReservationControl\Http\Middleware\InternalNetworkOnly;
-use Symfony\Component\Mime\Address;
-use Igniter\System\Classes\BaseExtension;
-use Illuminate\Support\Facades\Validator;
-use Livewire\Livewire;
 
 /**
  * Lokale Anpassungen am Reservierungsformular:
@@ -79,7 +79,7 @@ class Extension extends BaseExtension
         // Auf die Ereignisklasse hoeren, nicht auf den Namen: EventDispatchable
         // feuert beides, der String uebergibt aber zwei lose Argumente
         // ($model, $schedule) statt des Objekts.
-        Event::listen(WorkingScheduleCreatedEvent::class, function(WorkingScheduleCreatedEvent $event): void {
+        Event::listen(WorkingScheduleCreatedEvent::class, function (WorkingScheduleCreatedEvent $event): void {
             if ($exceptions = BlockedDates::asScheduleExceptions()) {
                 $event->schedule->setExceptions($exceptions);
             }
@@ -89,13 +89,13 @@ class Extension extends BaseExtension
         // im Haus landen, daher ein Reply-To. Ueber das MessageSending-Ereignis
         // statt Mail::alwaysReplyTo(), damit der Mailer nicht schon beim Booten
         // aufgeloest wird. Setzt nur, wenn die Nachricht selbst keins mitbringt.
-        Event::listen(MessageSending::class, function(MessageSending $event): void {
+        Event::listen(MessageSending::class, function (MessageSending $event): void {
             $address = env('MAIL_REPLY_TO_ADDRESS', 'info@zum-braunen-ross-bauerbach.de');
-            if (!$address || $event->message->getReplyTo()) {
+            if (! $address || $event->message->getReplyTo()) {
                 return;
             }
 
-            $event->message->replyTo(new Address($address, (string)env('MAIL_REPLY_TO_NAME', 'Gasthaus Zum braunen Roß')));
+            $event->message->replyTo(new Address($address, (string) env('MAIL_REPLY_TO_NAME', 'Gasthaus Zum braunen Roß')));
         });
 
         // Im Backend reicht ein Name. Die importierten Reservierungen fuer den
@@ -115,8 +115,8 @@ class Extension extends BaseExtension
         // Das oeffentliche Buchungsformular bleibt unberuehrt: es schickt seine
         // Felder in camelCase (firstName), dort sind Telefonnummer und E-Mail
         // weiterhin Pflicht.
-        Event::listen('system.formRequest.extendValidator', function($request, $holder): void {
-            if (!$request instanceof ReservationRequest && !$request instanceof ApiReservationRequest) {
+        Event::listen('system.formRequest.extendValidator', function ($request, $holder): void {
+            if (! $request instanceof ReservationRequest && ! $request instanceof ApiReservationRequest) {
                 return;
             }
 
@@ -138,7 +138,7 @@ class Extension extends BaseExtension
         // Reservierung von Hand ohne E-Mail eingetragen wird. Leerer String
         // statt einer erfundenen Adresse: an eine solche wuerde spaeter jemand
         // zu senden versuchen.
-        Reservation::saving(function(Reservation $reservation): void {
+        Reservation::saving(function (Reservation $reservation): void {
             foreach (['first_name', 'last_name', 'email'] as $feld) {
                 if ($reservation->{$feld} === null) {
                     $reservation->{$feld} = '';
@@ -155,7 +155,7 @@ class Extension extends BaseExtension
             //
             // Hier und nicht im Client, damit es fuer jeden Weg gilt: App,
             // oeffentliches Formular, Import, Konsole.
-            if (!$reservation->status_id && ($vorgabe = (int)setting('default_reservation_status'))) {
+            if (! $reservation->status_id && ($vorgabe = (int) setting('default_reservation_status'))) {
                 $reservation->status_id = $vorgabe;
             }
         });
@@ -169,7 +169,7 @@ class Extension extends BaseExtension
         // Reservierung, die hier keinen Tisch bekommen hat, doch noch mit einer
         // Kombination belegen, deren Einzeltische laengst vergeben sind. Ist die
         // Einstellung aus, haelt er sich heraus und diese Vergabe ist die einzige.
-        Reservation::saved(function(Reservation $reservation): void {
+        Reservation::saved(function (Reservation $reservation): void {
             // Von Hand gesetzte Tische (Admin, Telefonannahme, Raeume) gewinnen.
             if (array_key_exists('tables', $reservation->getAttributes())) {
                 return;
@@ -177,7 +177,7 @@ class Extension extends BaseExtension
 
             // Beim Bearbeiten einen bereits vergebenen Tisch stehen lassen -
             // sonst raeumt jede Aenderung im Backend die Handvergabe weg.
-            if (!$reservation->wasRecentlyCreated && $reservation->tables()->count()) {
+            if (! $reservation->wasRecentlyCreated && $reservation->tables()->count()) {
                 return;
             }
 
@@ -195,13 +195,13 @@ class Extension extends BaseExtension
         // mount/hydrate-Listener einmalig beim Booten von Livewire. Wird der Hook
         // danach registriert - und Extensions booten später - bekommt er sie nie.
         // listen() hängt dagegen direkt in den EventBus, unabhängig von der Reihenfolge.
-        Livewire::listen('mount', function($component): void {
+        Livewire::listen('mount', function ($component): void {
             if ($component instanceof Booking) {
                 BookingContext::remember($component);
             }
         });
 
-        Livewire::listen('hydrate', function($component): void {
+        Livewire::listen('hydrate', function ($component): void {
             if ($component instanceof Booking) {
                 BookingContext::remember($component);
             }
@@ -209,13 +209,13 @@ class Extension extends BaseExtension
 
         // prepareDates() laeuft nur in mount(); die gesperrten Tage blieben sonst
         // stehen, waehrend die Zeitfenster sich schon geoeffnet haben.
-        Livewire::listen('update', function($component, $fullPath) {
-            if (!$component instanceof Booking || str_before((string)$fullPath, '.') !== 'guest') {
+        Livewire::listen('update', function ($component, $fullPath) {
+            if (! $component instanceof Booking || str_before((string) $fullPath, '.') !== 'guest') {
                 return null;
             }
 
-            return function() use ($component): void {
-                (function(): void {
+            return function () use ($component): void {
+                (function (): void {
                     $this->dates = [];
                     $this->disabledDates = [];
                     $this->prepareDates();
@@ -226,11 +226,11 @@ class Extension extends BaseExtension
         // Reservierungen im API immer mit Status und Tischen ausliefern.
         // Siehe StandardIncludes: ohne das zeigt TastyCompanion beim Status
         // "no value", weil es ihn ueber die Beziehung aufloest.
-        Event::listen(RouteMatched::class, function(RouteMatched $event): void {
+        Event::listen(RouteMatched::class, function (RouteMatched $event): void {
             StandardIncludes::ergaenzen($event->request, $event->route->getName());
         });
 
-        Validator::resolver(function($translator, array $data, array $rules, array $messages, array $attributes) {
+        Validator::resolver(function ($translator, array $data, array $rules, array $messages, array $attributes) {
             if ($this->isBookingForm($rules)) {
                 $rules['telephone'] = ['required', 'regex:/^([0-9\s\-\+\(\)]*)$/i'];
             }
@@ -255,7 +255,7 @@ class Extension extends BaseExtension
     {
         Route::middleware(config('igniter-api.middleware'))
             ->prefix(config('igniter-api.prefix'))
-            ->group(function(): void {
+            ->group(function (): void {
                 Route::get('intern/tag', [InternApi::class, 'tag'])
                     ->name('reservationcontrol.api.tag');
                 Route::post('intern/reservierung', [InternApi::class, 'annehmen'])
@@ -283,7 +283,7 @@ class Extension extends BaseExtension
     {
         Route::middleware(['web', InternalNetworkOnly::class])
             ->prefix('intern')
-            ->group(function(): void {
+            ->group(function (): void {
                 Route::get('/', [InternalBooking::class, 'index'])->name('reservationcontrol.intern');
                 Route::get('/druck', [InternalBooking::class, 'printDay'])->name('reservationcontrol.intern.print');
                 Route::post('/', [InternalBooking::class, 'store'])->name('reservationcontrol.intern.store');
@@ -295,7 +295,7 @@ class Extension extends BaseExtension
     private function isBookingForm(array $rules): bool
     {
         foreach (self::BOOKING_FIELDS as $field) {
-            if (!array_key_exists($field, $rules)) {
+            if (! array_key_exists($field, $rules)) {
                 return false;
             }
         }

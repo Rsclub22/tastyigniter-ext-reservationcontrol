@@ -36,7 +36,7 @@ class Tagesdaten
             $manager->forceGuestCount($guests)->allowSameDay();
         }
 
-        $slots = collect($manager->makeTimeSlots($date))->map(fn($t): Carbon => Carbon::parse($t));
+        $slots = collect($manager->makeTimeSlots($date))->map(fn ($t): Carbon => Carbon::parse($t));
 
         $vermerke = Sperrvermerke::onDate($date);
         $vermerkZeiten = Sperrvermerke::zeiten($vermerke);
@@ -54,7 +54,7 @@ class Tagesdaten
 
         $roomReservations = Rooms::reservationsOn($date);
 
-        $dauer = (int)$location->getReservationStayTime();
+        $dauer = (int) $location->getReservationStayTime();
 
         $ganztags = Sperrvermerke::ganztaegige($vermerke, $date);
 
@@ -72,16 +72,16 @@ class Tagesdaten
         //
         // Ein ausgewaehlter Raum geht vor: Scheune, Keller und Saal haengen
         // nicht an den Tischen und sind auch an solchen Tagen frei vergebbar.
-        if (!$room && $ganztags->isNotEmpty()) {
-            $zeiten = $vermerkZeiten ?: $slots->map(fn(Carbon $s): string => $s->format('H:i'))->all();
+        if (! $room && $ganztags->isNotEmpty()) {
+            $zeiten = $vermerkZeiten ?: $slots->map(fn (Carbon $s): string => $s->format('H:i'))->all();
 
             // Nennt der Vermerk eine Hoechstzahl, gilt sie je Zeitfenster.
             // Gezaehlt wird alles, was zu dieser Uhrzeit schon dasteht - auch
             // Raeume: die Kueche unterscheidet nicht, wo die Leute sitzen.
             $belegt = $maxPax === null ? [] : Sperrvermerke::belegungJeZeit($date);
 
-            $belegung = array_map(static function(string $zeit) use ($maxPax, $paxJeZeit, $belegt, $guests): array {
-                $schon = (int)($belegt[$zeit] ?? 0);
+            $belegung = array_map(static function (string $zeit) use ($maxPax, $paxJeZeit, $belegt, $guests): array {
+                $schon = (int) ($belegt[$zeit] ?? 0);
 
                 // Steht fuer diesen Gang eine eigene Zahl im Text, gilt sie;
                 // sonst die eine Zahl fuer alle Gaenge.
@@ -101,7 +101,7 @@ class Tagesdaten
                 ];
             }, $zeiten);
         } else {
-            $belegung = $slots->map(function(Carbon $slot) use ($date, $tables, $echte, $dauer, $reservations, $guests, $room, $roomReservations): array {
+            $belegung = $slots->map(function (Carbon $slot) use ($date, $tables, $echte, $dauer, $reservations, $guests, $room, $roomReservations): array {
                 $at = $date->copy()->setTimeFromTimeString($slot->format('H:i'));
 
                 // Ist ein Raum gewaehlt, zaehlt allein dessen Belegung - die Tische
@@ -130,9 +130,9 @@ class Tagesdaten
                     'zeit' => $slot->format('H:i'),
                     'frei' => $freieEchte->count(),
                     'gesamt' => $echte->count(),
-                    'freie_plaetze' => (int)$freieEchte->sum('max_capacity'),
+                    'freie_plaetze' => (int) $freieEchte->sum('max_capacity'),
                     'passt' => TableAllocator::pick($frei, $guests) !== null,
-                    'groesster' => (int)$frei->max(fn($t): int => $t->max_capacity + $t->extra_capacity) ?: 0,
+                    'groesster' => (int) $frei->max(fn ($t): int => $t->max_capacity + $t->extra_capacity) ?: 0,
                     'raum' => null,
                     'ohne_tisch' => false,
                     'pax_max' => null,
@@ -144,7 +144,7 @@ class Tagesdaten
             // aber eigene Zeiten: der Maerchenabend um 17 Uhr steht am Telefon
             // zur Annahme, ohne dass er den Mittagstisch zumacht. Ohne Tisch,
             // denn die Tische sind zu der Zeit vom Vermerk belegt.
-            if (!$room && $vermerke->isNotEmpty()) {
+            if (! $room && $vermerke->isNotEmpty()) {
                 $bekannt = array_column($belegung, 'zeit');
                 $belegt = Sperrvermerke::belegungJeZeit($date);
 
@@ -154,7 +154,7 @@ class Tagesdaten
                     }
 
                     $grenze = $paxJeZeit[$zeit] ?? $maxPax;
-                    $schon = (int)($belegt[$zeit] ?? 0);
+                    $schon = (int) ($belegt[$zeit] ?? 0);
 
                     $belegung[] = [
                         'zeit' => $zeit,
@@ -170,7 +170,7 @@ class Tagesdaten
                     ];
                 }
 
-                usort($belegung, static fn(array $a, array $b): int => strcmp($a['zeit'], $b['zeit']));
+                usort($belegung, static fn (array $a, array $b): int => strcmp($a['zeit'], $b['zeit']));
             }
         }
 
@@ -187,7 +187,7 @@ class Tagesdaten
             'neu' => $neu,
             'reservierungen' => $reservations,
             'tischeGesamt' => $echte->count(),
-            'plaetzeGesamt' => (int)$echte->sum('max_capacity'),
+            'plaetzeGesamt' => (int) $echte->sum('max_capacity'),
             'standort' => $location,
             'vermerke' => $vermerke,
             'ganztags' => $ganztags,
@@ -201,18 +201,18 @@ class Tagesdaten
     /** Trennzeit als HH:MM, oder null fuer ein einziges Blatt. */
     public static function trennzeit(?string $raw): ?string
     {
-        $raw = trim((string)($raw ?? env('INTERN_DRUCK_TRENNZEIT', self::TRENNZEIT)));
+        $raw = trim((string) ($raw ?? env('INTERN_DRUCK_TRENNZEIT', self::TRENNZEIT)));
 
         if ($raw === '' || strtolower($raw) === 'aus') {
             return null;
         }
 
-        if (!preg_match('/^(\d{1,2}):(\d{2})$/', $raw, $treffer)) {
+        if (! preg_match('/^(\d{1,2}):(\d{2})$/', $raw, $treffer)) {
             return self::TRENNZEIT;
         }
 
-        $stunde = (int)$treffer[1];
-        $minute = (int)$treffer[2];
+        $stunde = (int) $treffer[1];
+        $minute = (int) $treffer[2];
 
         return $stunde <= 23 && $minute <= 59
             ? sprintf('%02d:%02d', $stunde, $minute)
@@ -222,7 +222,7 @@ class Tagesdaten
     public static function standort(): Location
     {
         $location = Location::query()->whereIsEnabled()->first();
-        abort_if(!$location, 500, 'Kein aktiver Standort vorhanden.');
+        abort_if(! $location, 500, 'Kein aktiver Standort vorhanden.');
 
         return $location;
     }

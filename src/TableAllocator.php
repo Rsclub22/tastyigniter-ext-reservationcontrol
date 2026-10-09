@@ -30,7 +30,7 @@ class TableAllocator
     {
         return DiningTable::query()
             ->select('dining_tables.*')
-            ->join('dining_areas', function($join) use ($locationId): void {
+            ->join('dining_areas', function ($join) use ($locationId): void {
                 $join->on('dining_areas.id', '=', 'dining_tables.dining_area_id')
                     ->where('dining_areas.location_id', $locationId);
             })
@@ -70,16 +70,16 @@ class TableAllocator
 
         foreach ($ids as $id) {
             $self = $tables->firstWhere('id', $id);
-            if (!$self) {
+            if (! $self) {
                 continue;
             }
 
             if ($self->parent_id) {
-                $result[] = (int)$self->parent_id;
+                $result[] = (int) $self->parent_id;
             }
 
             foreach ($tables->where('parent_id', $id) as $child) {
-                $result[] = (int)$child->id;
+                $result[] = (int) $child->id;
             }
         }
 
@@ -91,7 +91,7 @@ class TableAllocator
     {
         $busy = self::busyIds($at, $at->copy()->addMinutes(max(1, $duration)), $reservations);
 
-        return $candidates->reject(fn($t): bool => $busy->contains($t->id));
+        return $candidates->reject(fn ($t): bool => $busy->contains($t->id));
     }
 
     /**
@@ -101,7 +101,7 @@ class TableAllocator
     public static function pick(Collection $free, int $guests): ?DiningTable
     {
         $passend = $free->filter(
-            fn($t): bool => $t->min_capacity <= $guests && ($t->max_capacity + $t->extra_capacity) >= $guests,
+            fn ($t): bool => $t->min_capacity <= $guests && ($t->max_capacity + $t->extra_capacity) >= $guests,
         );
 
         $einzeln = $passend->where('is_combo', 0)->sortBy('max_capacity');
@@ -119,17 +119,17 @@ class TableAllocator
      */
     public static function allocate(Reservation $reservation): ?DiningTable
     {
-        $locationId = (int)$reservation->location_id;
+        $locationId = (int) $reservation->location_id;
         $at = $reservation->reservation_datetime;
 
         $frei = self::freeAt(
             self::candidates($locationId),
             $at,
-            (int)$reservation->duration,
-            self::reservationsOn($locationId, $at, (int)$reservation->getKey()),
+            (int) $reservation->duration,
+            self::reservationsOn($locationId, $at, (int) $reservation->getKey()),
         );
 
-        return self::pick($frei, max(1, (int)$reservation->guest_num));
+        return self::pick($frei, max(1, (int) $reservation->guest_num));
     }
 
     /** Reservierungen eines Tages, die fuer die Belegung zaehlen. */
@@ -139,8 +139,8 @@ class TableAllocator
             ->with('tables')
             ->where('location_id', $locationId)
             ->whereDate('reserve_date', $date->toDateString())
-            ->whereNotIn('status_id', [0, (int)setting('canceled_reservation_status')])
-            ->when($ignore, fn($q) => $q->where('reservation_id', '!=', $ignore))
+            ->whereNotIn('status_id', [0, (int) setting('canceled_reservation_status')])
+            ->when($ignore, fn ($q) => $q->where('reservation_id', '!=', $ignore))
             ->orderBy('reserve_time')
             ->get();
     }

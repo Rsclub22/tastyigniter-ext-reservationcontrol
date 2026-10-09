@@ -48,7 +48,7 @@ class Anlegen
     {
         self::konsoleVorbereiten();
 
-        return DB::transaction(function() use ($daten, $verlaufskommentar): Reservation {
+        return DB::transaction(function () use ($daten, $verlaufskommentar): Reservation {
             $r = new Reservation;
             $r->location_id = $daten['location_id'];
             $r->guest_num = $daten['guest_num'];
@@ -97,11 +97,11 @@ class Anlegen
     {
         $r = Reservation::find($id);
 
-        if (!$r || $r->user_agent !== self::MARKER) {
+        if (! $r || $r->user_agent !== self::MARKER) {
             return false;
         }
 
-        DB::transaction(function() use ($r, $id): void {
+        DB::transaction(function () use ($r, $id): void {
             DB::table('reservation_tables')->where('reservation_id', $id)->delete();
             DB::table('status_history')
                 ->where('object_type', $r->getMorphClass())

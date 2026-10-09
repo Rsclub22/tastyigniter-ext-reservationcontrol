@@ -31,7 +31,7 @@ class BlockedDates
         // eine Zeichenkette zurueck. Und ausdruecklich die Gruppe angeben, denn
         // der setting()-Helfer liest nur "config".
         $raw = Settings::get(self::SETTING, '', self::GROUP);
-        if (!is_string($raw) || $raw === '') {
+        if (! is_string($raw) || $raw === '') {
             return [];
         }
 
@@ -44,7 +44,7 @@ class BlockedDates
     public static function upcoming(): array
     {
         $heute = Carbon::today()->toDateString();
-        $dates = array_filter(self::all(), fn($grund, $datum): bool => $datum >= $heute, ARRAY_FILTER_USE_BOTH);
+        $dates = array_filter(self::all(), fn ($grund, $datum): bool => $datum >= $heute, ARRAY_FILTER_USE_BOTH);
         ksort($dates);
 
         return $dates;
@@ -75,14 +75,14 @@ class BlockedDates
      */
     public static function asScheduleExceptions(): array
     {
-        return array_map(static fn(): array => [], self::all());
+        return array_map(static fn (): array => [], self::all());
     }
 
     private static function store(array $dates): void
     {
         // Vergangenes mitnehmen, sonst waechst die Einstellung endlos.
         $heute = Carbon::today()->toDateString();
-        $dates = array_filter($dates, fn($grund, $datum): bool => $datum >= $heute, ARRAY_FILTER_USE_BOTH);
+        $dates = array_filter($dates, fn ($grund, $datum): bool => $datum >= $heute, ARRAY_FILTER_USE_BOTH);
         ksort($dates);
 
         Settings::set(self::SETTING, json_encode($dates, JSON_UNESCAPED_UNICODE), self::GROUP);

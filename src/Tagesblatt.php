@@ -38,7 +38,7 @@ class Tagesblatt
             ->with('tables')
             ->where('location_id', $location->getKey())
             ->whereDate('reserve_date', $datum->toDateString())
-            ->where('status_id', '!=', (int)setting('canceled_reservation_status'))
+            ->where('status_id', '!=', (int) setting('canceled_reservation_status'))
             ->orderBy('reserve_time')
             ->orderBy('reservation_id')
             ->get();
@@ -51,7 +51,7 @@ class Tagesblatt
         // des Tages - er kommt deshalb als Band ueber die Tabelle.
         $hausgroesse = Sperrvermerke::hausgroesse();
 
-        $istVermerk = static fn(Reservation $r): bool => Sperrvermerke::istVermerk($r, $hausgroesse);
+        $istVermerk = static fn (Reservation $r): bool => Sperrvermerke::istVermerk($r, $hausgroesse);
 
         return [
             'datum' => $datum,
@@ -67,7 +67,7 @@ class Tagesblatt
     /** Reservierungen eines Tages auf die Blaetter verteilen. */
     private static function blaetter(Collection $alle, ?string $trennzeit): array
     {
-        $uhrzeit = static fn(Reservation $r): string => Carbon::parse($r->reserve_time)->format('H:i');
+        $uhrzeit = static fn (Reservation $r): string => Carbon::parse($r->reserve_time)->format('H:i');
 
         if ($trennzeit === null) {
             return $alle->isEmpty() ? [] : [['titel' => 'Ganzer Tag', 'reservierungen' => $alle]];
@@ -75,16 +75,16 @@ class Tagesblatt
 
         $abschnitte = [
             ['titel' => 'Bis '.$trennzeit.' Uhr', 'reservierungen' => $alle->filter(
-                static fn(Reservation $r): bool => $uhrzeit($r) < $trennzeit,
+                static fn (Reservation $r): bool => $uhrzeit($r) < $trennzeit,
             )->values()],
             ['titel' => 'Ab '.$trennzeit.' Uhr', 'reservierungen' => $alle->filter(
-                static fn(Reservation $r): bool => $uhrzeit($r) >= $trennzeit,
+                static fn (Reservation $r): bool => $uhrzeit($r) >= $trennzeit,
             )->values()],
         ];
 
         return array_values(array_filter(
             $abschnitte,
-            static fn(array $a): bool => $a['reservierungen']->isNotEmpty(),
+            static fn (array $a): bool => $a['reservierungen']->isNotEmpty(),
         ));
     }
 }

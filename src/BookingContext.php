@@ -33,6 +33,6 @@ class BookingContext
      */
     public static function guestCount(): ?int
     {
-        return is_null(self::$component?->guest) ? null : (int)self::$component->guest;
+        return is_null(self::$component?->guest) ? null : (int) self::$component->guest;
     }
 }

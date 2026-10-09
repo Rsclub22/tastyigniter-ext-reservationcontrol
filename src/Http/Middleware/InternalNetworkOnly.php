@@ -37,7 +37,7 @@ class InternalNetworkOnly
     {
         // Vertraute Proxies sind gesetzt, ip() liefert daher die echte
         // Absenderadresse und nicht die der Bridge.
-        if (!IpUtils::checkIp((string)$request->ip(), self::ALLOWED)) {
+        if (! IpUtils::checkIp((string) $request->ip(), self::ALLOWED)) {
             abort(404);
         }
 

@@ -58,7 +58,7 @@ class InternApi extends ApiController
     public function tag(Request $request): JsonResponse
     {
         $datum = $this->datum($request->query('datum'));
-        $gaeste = max(1, (int)($request->query('gaeste') ?? 2));
+        $gaeste = max(1, (int) ($request->query('gaeste') ?? 2));
         $raum = Rooms::find($request->query('raum'));
 
         $daten = Tagesdaten::fuer($datum, $gaeste, $raum);
@@ -69,20 +69,20 @@ class InternApi extends ApiController
             'raum' => $raum ? $this->raum($raum) : null,
 
             // Gesperrter Tag: fuer den Gast liest sich das als "geschlossen".
-            'gesperrt' => (bool)$daten['gesperrt'],
-            'grund' => (string)$daten['grund'],
+            'gesperrt' => (bool) $daten['gesperrt'],
+            'grund' => (string) $daten['grund'],
             'sperren' => $daten['sperren'],
 
             'trennzeit' => $daten['trennzeit'],
-            'tische_gesamt' => (int)$daten['tischeGesamt'],
-            'plaetze_gesamt' => (int)$daten['plaetzeGesamt'],
+            'tische_gesamt' => (int) $daten['tischeGesamt'],
+            'plaetze_gesamt' => (int) $daten['plaetzeGesamt'],
 
             // Schon fertige Listen aus Tagesdaten, Feld fuer Feld wie dort:
             // zeit, frei, gesamt, freie_plaetze, passt, groesster, raum,
             // ohne_tisch, pax_max, pax_belegt.
             'belegung' => array_values($daten['belegung']),
 
-            'raeume' => $daten['raeume']->map(fn(DiningTable $r): array => $this->raum($r))->values(),
+            'raeume' => $daten['raeume']->map(fn (DiningTable $r): array => $this->raum($r))->values(),
 
             // Sperrvermerke sind gewoehnliche Reservierungen mit mehr Gaesten als
             // das Haus Plaetze hat. Was darin als Uhrzeit oder Hoechstzahl gilt,
@@ -91,11 +91,11 @@ class InternApi extends ApiController
             // ganztags: nimmt der Vermerk den Tag ein, oder sperrt er nur seine
             // eigene Zeit? Ein Maerchenabend um 17 Uhr laesst den Mittagstisch
             // offen, ein Weihnachtsvermerk ueber der Mittagszeit nicht.
-            'vermerke' => $daten['vermerke']->map(fn(Reservation $v): array => [
-                'id' => (int)$v->reservation_id,
-                'zeit' => substr((string)$v->reserve_time, 0, 5),
-                'gaeste' => (int)$v->guest_num,
-                'kommentar' => (string)($v->comment ?? ''),
+            'vermerke' => $daten['vermerke']->map(fn (Reservation $v): array => [
+                'id' => (int) $v->reservation_id,
+                'zeit' => substr((string) $v->reserve_time, 0, 5),
+                'gaeste' => (int) $v->guest_num,
+                'kommentar' => (string) ($v->comment ?? ''),
                 'ganztags' => Sperrvermerke::ganztags($v, $datum),
             ])->values(),
             'ganztags' => $daten['ganztags']->isNotEmpty(),
@@ -105,7 +105,7 @@ class InternApi extends ApiController
             'hausgroesse' => Sperrvermerke::hausgroesse(),
 
             'reservierungen' => $daten['reservierungen']
-                ->map(fn(Reservation $r): array => $this->alsListe($r))->values(),
+                ->map(fn (Reservation $r): array => $this->alsListe($r))->values(),
         ]);
     }
 
@@ -144,7 +144,7 @@ class InternApi extends ApiController
 
         $datum = Carbon::parse($data['datum']);
 
-        if ($meldung = Annahme::hoechstzahlVerletzt($datum, $data['zeit'], (int)$data['gaeste'])) {
+        if ($meldung = Annahme::hoechstzahlVerletzt($datum, $data['zeit'], (int) $data['gaeste'])) {
             // 422 wie bei einem Validierungsfehler, damit die App die Meldung an
             // das Feld haengen kann statt einen Serverfehler zu melden.
             return response()->json([
@@ -205,20 +205,20 @@ class InternApi extends ApiController
 
             $tage[] = [
                 'datum' => $tag->toDateString(),
-                'gesperrt' => (bool)$blatt['gesperrt'],
-                'grund' => (string)$blatt['grund'],
+                'gesperrt' => (bool) $blatt['gesperrt'],
+                'grund' => (string) $blatt['grund'],
                 'max_pax' => $blatt['maxPax'],
                 'pax_je_zeit' => $blatt['paxJeZeit'],
-                'sperrvermerke' => $blatt['sperrvermerke']->map(fn(Reservation $v): array => [
-                    'id' => (int)$v->reservation_id,
-                    'zeit' => substr((string)$v->reserve_time, 0, 5),
-                    'kommentar' => (string)($v->comment ?? ''),
+                'sperrvermerke' => $blatt['sperrvermerke']->map(fn (Reservation $v): array => [
+                    'id' => (int) $v->reservation_id,
+                    'zeit' => substr((string) $v->reserve_time, 0, 5),
+                    'kommentar' => (string) ($v->comment ?? ''),
                 ])->values(),
-                'blaetter' => array_map(fn(array $b): array => [
-                    'titel' => (string)$b['titel'],
-                    'gaeste' => (int)$b['reservierungen']->sum('guest_num'),
+                'blaetter' => array_map(fn (array $b): array => [
+                    'titel' => (string) $b['titel'],
+                    'gaeste' => (int) $b['reservierungen']->sum('guest_num'),
                     'reservierungen' => $b['reservierungen']
-                        ->map(fn(Reservation $r): array => $this->alsListe($r))->values(),
+                        ->map(fn (Reservation $r): array => $this->alsListe($r))->values(),
                 ], $blatt['blaetter']),
             ];
         }
@@ -253,8 +253,8 @@ class InternApi extends ApiController
 
         $heute = Carbon::today();
         $von = Carbon::create(
-            (int)($data['jahr'] ?? $heute->year),
-            (int)($data['monat'] ?? $heute->month),
+            (int) ($data['jahr'] ?? $heute->year),
+            (int) ($data['monat'] ?? $heute->month),
             1,
         )->startOfDay();
         $bis = $von->copy()->endOfMonth();
@@ -265,9 +265,9 @@ class InternApi extends ApiController
         $alle = Reservation::query()
             ->where('location_id', $location->getKey())
             ->whereBetween('reserve_date', [$von->toDateString(), $bis->toDateString()])
-            ->where('status_id', '!=', (int)setting('canceled_reservation_status'))
+            ->where('status_id', '!=', (int) setting('canceled_reservation_status'))
             ->get()
-            ->groupBy(fn(Reservation $r): string => Carbon::parse($r->reserve_date)->toDateString());
+            ->groupBy(fn (Reservation $r): string => Carbon::parse($r->reserve_date)->toDateString());
 
         $sperren = BlockedDates::all();
         $tage = [];
@@ -277,10 +277,10 @@ class InternApi extends ApiController
             $schluessel = $tag->toDateString();
             $desTages = $alle->get($schluessel) ?? collect();
 
-            $vermerke = $desTages->filter(fn(Reservation $r): bool => Sperrvermerke::istVermerk($r, $hausgroesse));
-            $gaeste = $desTages->reject(fn(Reservation $r): bool => Sperrvermerke::istVermerk($r, $hausgroesse));
+            $vermerke = $desTages->filter(fn (Reservation $r): bool => Sperrvermerke::istVermerk($r, $hausgroesse));
+            $gaeste = $desTages->reject(fn (Reservation $r): bool => Sperrvermerke::istVermerk($r, $hausgroesse));
 
-            $summe = (int)$gaeste->sum('guest_num');
+            $summe = (int) $gaeste->sum('guest_num');
             $hoechstwert = max($hoechstwert, $summe);
 
             $tage[] = [
@@ -288,9 +288,9 @@ class InternApi extends ApiController
                 'reservierungen' => $gaeste->count(),
                 'gaeste' => $summe,
                 'gesperrt' => array_key_exists($schluessel, $sperren),
-                'grund' => (string)($sperren[$schluessel] ?? ''),
+                'grund' => (string) ($sperren[$schluessel] ?? ''),
                 'vermerk' => $vermerke->isNotEmpty(),
-                'vermerk_text' => (string)($vermerke->first()?->comment ?? ''),
+                'vermerk_text' => (string) ($vermerke->first()?->comment ?? ''),
                 'max_pax' => Sperrvermerke::maxPax($vermerke),
             ];
         }
@@ -332,8 +332,8 @@ class InternApi extends ApiController
             'seit' => ['nullable', 'integer', 'min:0'],
         ]);
 
-        $seit = (int)($data['seit'] ?? 0);
-        $offenerStatus = (int)setting('default_reservation_status');
+        $seit = (int) ($data['seit'] ?? 0);
+        $offenerStatus = (int) setting('default_reservation_status');
         $location = Tagesdaten::standort();
 
         $offen = Reservation::query()
@@ -343,14 +343,14 @@ class InternApi extends ApiController
             ->orderBy('reservation_id')
             ->get();
 
-        $neue = $offen->filter(fn(Reservation $r): bool => (int)$r->reservation_id > $seit);
+        $neue = $offen->filter(fn (Reservation $r): bool => (int) $r->reservation_id > $seit);
 
         return response()->json([
             'seit' => $seit,
             // Die hoechste vergebene Nummer, nicht die der neuesten unbestaetigten:
             // sonst ruecke der Merker nie vor, wenn zwischendurch nur bestaetigte
             // Reservierungen dazukommen, und dieselbe Meldung kaeme immer wieder.
-            'hoechste_id' => (int)Reservation::query()
+            'hoechste_id' => (int) Reservation::query()
                 ->where('location_id', $location->getKey())
                 ->max('reservation_id'),
             'anzahl' => $neue->count(),
@@ -360,7 +360,7 @@ class InternApi extends ApiController
             // und die Regel ist allein "mehr Gaeste als Plaetze im Haus".
             'hausgroesse' => Sperrvermerke::hausgroesse(),
             'reservierungen' => $neue->values()
-                ->map(fn(Reservation $r): array => $this->alsListe($r))->values(),
+                ->map(fn (Reservation $r): array => $this->alsListe($r))->values(),
         ]);
     }
 
@@ -373,7 +373,7 @@ class InternApi extends ApiController
         ]);
 
         $datum = Carbon::parse($data['datum'])->toDateString();
-        BlockedDates::block($datum, (string)($data['grund'] ?? ''));
+        BlockedDates::block($datum, (string) ($data['grund'] ?? ''));
 
         return response()->json(['gesperrt' => $datum, 'alle' => BlockedDates::all()]);
     }
@@ -392,7 +392,7 @@ class InternApi extends ApiController
     private function datum(mixed $roh): Carbon
     {
         try {
-            return $roh ? Carbon::parse((string)$roh)->startOfDay() : Carbon::today();
+            return $roh ? Carbon::parse((string) $roh)->startOfDay() : Carbon::today();
         } catch (\Throwable) {
             return Carbon::today();
         }
@@ -401,31 +401,31 @@ class InternApi extends ApiController
     private function raum(DiningTable $raum): array
     {
         return [
-            'id' => (int)$raum->getKey(),
-            'name' => (string)$raum->name,
-            'min_plaetze' => (int)$raum->min_capacity,
-            'max_plaetze' => (int)$raum->max_capacity + (int)$raum->extra_capacity,
+            'id' => (int) $raum->getKey(),
+            'name' => (string) $raum->name,
+            'min_plaetze' => (int) $raum->min_capacity,
+            'max_plaetze' => (int) $raum->max_capacity + (int) $raum->extra_capacity,
         ];
     }
 
     private function alsListe(Reservation $r): array
     {
         return [
-            'id' => (int)$r->reservation_id,
+            'id' => (int) $r->reservation_id,
             // Im Tages-Zusammenhang ueberfluessig, fuer Meldungen aber noetig:
             // dort steht die Reservierung ohne ihren Tag da.
             'datum' => Carbon::parse($r->reserve_date)->toDateString(),
-            'zeit' => substr((string)$r->reserve_time, 0, 5),
-            'dauer' => (int)$r->duration,
-            'gaeste' => (int)$r->guest_num,
+            'zeit' => substr((string) $r->reserve_time, 0, 5),
+            'dauer' => (int) $r->duration,
+            'gaeste' => (int) $r->guest_num,
             'name' => trim($r->first_name.' '.$r->last_name),
-            'telefon' => (string)($r->telephone ?? ''),
-            'kommentar' => (string)($r->comment ?? ''),
-            'status_id' => (int)$r->status_id,
-            'status' => (string)($r->status_name ?? ''),
-            'tische' => $r->tables->map(fn(DiningTable $t): array => [
-                'id' => (int)$t->getKey(),
-                'name' => (string)$t->name,
+            'telefon' => (string) ($r->telephone ?? ''),
+            'kommentar' => (string) ($r->comment ?? ''),
+            'status_id' => (int) $r->status_id,
+            'status' => (string) ($r->status_name ?? ''),
+            'tische' => $r->tables->map(fn (DiningTable $t): array => [
+                'id' => (int) $t->getKey(),
+                'name' => (string) $t->name,
             ])->values(),
             // Kennzeichnet die Pseudo-Reservierungen, die einen Tag verriegeln.
             'ist_vermerk' => Sperrvermerke::istVermerk($r),

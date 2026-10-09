@@ -55,12 +55,12 @@ class ReservierungImport extends Command
         }
 
         if ($protokoll = $this->option('zurueck')) {
-            return $this->zuruecknehmen((string)$protokoll);
+            return $this->zuruecknehmen((string) $protokoll);
         }
 
-        $datei = (string)$this->argument('datei');
+        $datei = (string) $this->argument('datei');
 
-        if ($datei === '' || !is_readable($datei)) {
+        if ($datei === '' || ! is_readable($datei)) {
             $this->error('Datei fehlt oder ist nicht lesbar. Vorlage: --vorlage');
 
             return self::INVALID;
@@ -73,7 +73,7 @@ class ReservierungImport extends Command
             return self::INVALID;
         }
 
-        $vorbereitet = array_map(fn(array $z): array => $this->aufbereiten($z, $tische), $zeilen);
+        $vorbereitet = array_map(fn (array $z): array => $this->aufbereiten($z, $tische), $zeilen);
 
         return $this->ausfuehren($vorbereitet, $tische);
     }
@@ -83,18 +83,18 @@ class ReservierungImport extends Command
     /** @return list<array{zeile: int, werte: array<string, string>}> */
     private function lesen(string $datei): array
     {
-        $inhalt = (string)file_get_contents($datei);
+        $inhalt = (string) file_get_contents($datei);
 
         // Byte-Order-Mark und Windows-Kodierung: eine aus Excel exportierte
         // Liste bringt beides mit, und ohne das hier stehen dann "MÃ¼ller"
         // in der Datenbank.
         $inhalt = preg_replace('/^\xEF\xBB\xBF/', '', $inhalt) ?? $inhalt;
 
-        if (!mb_check_encoding($inhalt, 'UTF-8')) {
+        if (! mb_check_encoding($inhalt, 'UTF-8')) {
             $inhalt = mb_convert_encoding($inhalt, 'UTF-8', 'Windows-1252');
         }
 
-        $erste = (string)strtok($inhalt, "\n");
+        $erste = (string) strtok($inhalt, "\n");
         $trenner = substr_count($erste, ';') >= substr_count($erste, ',') ? ';' : ',';
 
         if (substr_count($erste, "\t") > substr_count($erste, $trenner)) {
@@ -108,7 +108,7 @@ class ReservierungImport extends Command
         $rohe = [];
 
         while (($satz = fgetcsv($zeiger, 0, $trenner, '"', '\\')) !== false) {
-            if ($satz === [null] || (count($satz) === 1 && trim((string)$satz[0]) === '')) {
+            if ($satz === [null] || (count($satz) === 1 && trim((string) $satz[0]) === '')) {
                 continue;
             }
 
@@ -127,24 +127,24 @@ class ReservierungImport extends Command
         $zuordnung = [];
 
         foreach ($kopf as $i => $ueberschrift) {
-            $normal = Eingabe::normalisiert((string)$ueberschrift);
+            $normal = Eingabe::normalisiert((string) $ueberschrift);
 
             foreach (self::SPALTEN as $feld => $namen) {
-                if (!isset($zuordnung[$feld]) && in_array($normal, array_map([Eingabe::class, 'normalisiert'], $namen), true)) {
+                if (! isset($zuordnung[$feld]) && in_array($normal, array_map([Eingabe::class, 'normalisiert'], $namen), true)) {
                     $zuordnung[$feld] = $i;
                 }
             }
         }
 
         foreach (['datum', 'zeit', 'personen'] as $pflicht) {
-            if (!isset($zuordnung[$pflicht])) {
+            if (! isset($zuordnung[$pflicht])) {
                 $this->error(sprintf('Pflichtspalte "%s" fehlt. Gefunden: %s', $pflicht, implode(', ', $kopf)));
 
                 return [];
             }
         }
 
-        if (!isset($zuordnung['name']) && !isset($zuordnung['nachname'])) {
+        if (! isset($zuordnung['name']) && ! isset($zuordnung['nachname'])) {
             $this->error('Es braucht eine Spalte "Name" oder "Nachname".');
 
             return [];
@@ -156,7 +156,7 @@ class ReservierungImport extends Command
             $werte = [];
 
             foreach ($zuordnung as $feld => $i) {
-                $werte[$feld] = trim((string)($satz[$i] ?? ''));
+                $werte[$feld] = trim((string) ($satz[$i] ?? ''));
             }
 
             // +2: eine Zeile Kopf, und Zaehlung ab 1 wie im Tabellenprogramm.
@@ -175,11 +175,11 @@ class ReservierungImport extends Command
         $fehler = [];
         $hinweise = [];
 
-        if (!$datum = Eingabe::datum($w['datum'] ?? '')) {
+        if (! $datum = Eingabe::datum($w['datum'] ?? '')) {
             $fehler[] = sprintf('Datum unlesbar: "%s"', $w['datum'] ?? '');
         }
 
-        if (!$zeit = Eingabe::zeit($w['zeit'] ?? '')) {
+        if (! $zeit = Eingabe::zeit($w['zeit'] ?? '')) {
             $fehler[] = sprintf('Uhrzeit unlesbar: "%s"', $w['zeit'] ?? '');
         }
 
@@ -194,11 +194,11 @@ class ReservierungImport extends Command
         }
 
         $email = $w['email'] ?? '';
-        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $hinweise[] = sprintf('E-Mail sieht ungültig aus: "%s" – wird trotzdem übernommen', $email);
         }
 
-        $statusRoh = ($w['status'] ?? '') !== '' ? $w['status'] : (string)$this->option('status');
+        $statusRoh = ($w['status'] ?? '') !== '' ? $w['status'] : (string) $this->option('status');
         $status = Eingabe::status($statusRoh);
         if ($status === null) {
             $fehler[] = sprintf('Status unbekannt: "%s" (möglich: %s)', $statusRoh, implode(', ', array_keys(Eingabe::statusListe())));
@@ -208,7 +208,7 @@ class ReservierungImport extends Command
         $tischRoh = $w['tisch'] ?? '';
 
         if ($tischRoh !== '' && $tischRoh !== '-'
-            && !in_array(Eingabe::normalisiert($tischRoh), ['ohne', 'kein', 'keine', 'keiner', 'offen'], true)) {
+            && ! in_array(Eingabe::normalisiert($tischRoh), ['ohne', 'kein', 'keine', 'keiner', 'offen'], true)) {
             [$tischIds, $unbekannt] = Tischwahl::ausText($tischRoh, $tische);
 
             foreach ($unbekannt as $u) {
@@ -225,7 +225,7 @@ class ReservierungImport extends Command
         }
 
         foreach ($tischIds as $id) {
-            if (!$tische->get($id)?->is_enabled) {
+            if (! $tische->get($id)?->is_enabled) {
                 $hinweise[] = sprintf('Tisch "%s" ist deaktiviert – Zuordnung wird trotzdem gesetzt', $tische->get($id)->name ?? $id);
             }
         }
@@ -243,7 +243,7 @@ class ReservierungImport extends Command
 
         return [
             'zeile' => $nr,
-            'location_id' => (int)$this->option('location'),
+            'location_id' => (int) $this->option('location'),
             'reserve_date' => $datum,
             'reserve_time' => $zeit,
             'guest_num' => $personen,
@@ -265,7 +265,7 @@ class ReservierungImport extends Command
 
     private function ausfuehren(array $vorbereitet, Collection $tische): int
     {
-        $probe = (bool)$this->option('probe');
+        $probe = (bool) $this->option('probe');
 
         $this->newLine();
         $this->line($probe
@@ -301,7 +301,7 @@ class ReservierungImport extends Command
                 continue;
             }
 
-            if (!$this->option('doppelte') && $this->gibtEsSchon($z)) {
+            if (! $this->option('doppelte') && $this->gibtEsSchon($z)) {
                 $this->warn('  '.$bezeichnung);
                 $this->line('      <fg=yellow>→ gibt es schon (Datum, Uhrzeit, Nachname) – übersprungen. Mit --doppelte trotzdem anlegen.</>');
                 $uebersprungen++;
@@ -322,7 +322,7 @@ class ReservierungImport extends Command
 
             try {
                 $r = Anlegen::reservierung($z, 'Aus Liste nachträglich importiert');
-                $protokoll[] = (string)$r->reservation_id;
+                $protokoll[] = (string) $r->reservation_id;
                 $angelegt++;
                 $this->line(sprintf('  <fg=green>#%-4d</fg=green>   %s', $r->reservation_id, $bezeichnung));
             } catch (Throwable $e) {
@@ -341,7 +341,7 @@ class ReservierungImport extends Command
             $fehlerhaft,
         ));
 
-        if (!$probe && $protokoll !== []) {
+        if (! $probe && $protokoll !== []) {
             $verzeichnis = storage_path('import');
             @mkdir($verzeichnis, 0775, true);
             $datei = $verzeichnis.'/importiert-'.date('Ymd-His').'.log';
@@ -367,13 +367,13 @@ class ReservierungImport extends Command
 
     private function zuruecknehmen(string $protokoll): int
     {
-        if (!is_readable($protokoll)) {
+        if (! is_readable($protokoll)) {
             $this->error('Protokolldatei nicht lesbar: '.$protokoll);
 
             return self::INVALID;
         }
 
-        $ids = array_filter(array_map('trim', (array)file($protokoll)), 'ctype_digit');
+        $ids = array_filter(array_map('trim', (array) file($protokoll)), 'ctype_digit');
 
         if ($ids === []) {
             $this->warn('Keine Nummern in '.$protokoll);
@@ -390,7 +390,7 @@ class ReservierungImport extends Command
         }
 
         foreach ($ids as $id) {
-            if (Anlegen::zuruecknehmen((int)$id)) {
+            if (Anlegen::zuruecknehmen((int) $id)) {
                 $this->line(sprintf('  <fg=green>#%d gelöscht</>', $id));
             } else {
                 $this->warn(sprintf('  #%d nicht vorhanden oder nicht aus diesem Import – übersprungen', $id));

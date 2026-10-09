@@ -45,7 +45,7 @@ class Annahme
 
         // Gezaehlt wird alles, was zu dieser Uhrzeit schon dasteht - auch
         // Raeume: die Kueche unterscheidet nicht, wo die Leute sitzen.
-        $schon = (int)(Sperrvermerke::belegungJeZeit($datum)[$zeit] ?? 0);
+        $schon = (int) (Sperrvermerke::belegungJeZeit($datum)[$zeit] ?? 0);
 
         if ($schon + $gaeste <= $maxPax) {
             return null;
@@ -72,7 +72,7 @@ class Annahme
 
         $reservation = new Reservation;
         $reservation->location_id = $location->getKey();
-        $reservation->guest_num = (int)$data['gaeste'];
+        $reservation->guest_num = (int) $data['gaeste'];
         // Am Telefon wird nur der Nachname erfragt. Die Spalte ist NOT NULL,
         // deshalb leerer String statt einer Wiederholung des Nachnamens.
         $reservation->first_name = '';
@@ -85,7 +85,7 @@ class Annahme
         $reservation->reserve_date = $data['datum'];
         $reservation->reserve_time = $data['zeit'].':00';
         $reservation->duration = $location->getReservationStayTime();
-        $reservation->status_id = (int)setting('confirmed_reservation_status');
+        $reservation->status_id = (int) setting('confirmed_reservation_status');
 
         $room = Rooms::find($data['raum'] ?? null);
 
@@ -94,9 +94,9 @@ class Annahme
         // wenn der Gast erst noch anruft, wo er sitzen will, oder wenn die
         // Verteilung an diesem Tag ohnehin von Hand gemacht wird. Gewinnt gegen
         // eine Raumauswahl, damit die Angabe eindeutig bleibt.
-        if (!empty($data['ohne_tisch'])) {
+        if (! empty($data['ohne_tisch'])) {
             $reservation->tables = [];
-        } elseif (!$room && $vermerke->isNotEmpty()) {
+        } elseif (! $room && $vermerke->isNotEmpty()) {
             // Zu einer Zeit, fuer die ein Sperrvermerk gilt, verteilt der Tischplan auf Papier,
             // nicht das System. Der leere Wert ist dabei kein Versehen, sondern
             // die Ansage an den Beobachter in Extension.php: Finger weg, hier
@@ -114,7 +114,7 @@ class Annahme
 
         // notify=false: keine Statusmail an den Gast.
         $reservation->addStatusHistory(
-            (int)setting('confirmed_reservation_status'),
+            (int) setting('confirmed_reservation_status'),
             ['notify' => false, 'comment' => 'Telefonisch angenommen'],
         );
 
