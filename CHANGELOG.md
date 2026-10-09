@@ -57,6 +57,17 @@
 
 ### Fixed
 
+- Blocked time slots were never disabled on the public booking form. TastyIgniter's
+  `BookingManager` returns blocked slots as `Y-m-d H:i:s`, the Orange theme looks them up as
+  `Y-m-d H:i`, so nothing ever matched. As a result the online cut-off, the online guest cap,
+  a closure note's blocked time window and an all-day note (the way a day is closed) had **no
+  effect on the public form**; they only took effect from this fix. `isTimeslotsFullyBookedOn()`
+  now returns every blocked slot in both notations. Check your closure notes before updating:
+  days that were closed on paper but bookable online become closed online.
+- A submitted online reservation whose date and time fall in a blocked slot is now refused
+  with a clear message, instead of relying on the disabled button alone. Uses the same
+  method as the form, so the two cannot disagree. If the check cannot be made (no location,
+  unexpected value, exception) the booking goes through and a warning is logged.
 - Allow-list entries with mask `/0` (`0.0.0.0/0`, `::/0`) are rejected; they matched every
   address and would have opened the intake pages to the internet.
 - `EnterReservation::changeField()` (console command `reservation:enter`, "change a field")

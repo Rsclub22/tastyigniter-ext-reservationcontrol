@@ -90,6 +90,30 @@ class LargePartyBookingManager extends BookingManager
      */
     public function isTimeslotsFullyBookedOn(Collection $timeslots, Carbon $date, ?int $noOfGuest = null): array
     {
+        $booked = $this->blockedDateTimes($timeslots, $date, $noOfGuest);
+
+        // Every blocked date-time is returned in BOTH notations, here at the one
+        // place where all branches (cut-off, cap, closure-note window, all-day
+        // note, table logic) leave the method. Do not "tidy" this away:
+        // TastyIgniter's BookingManager returns 'Y-m-d H:i:s' (toDateTimeString),
+        // but the Orange theme looks the slots up with
+        // in_array($dateTime->format('Y-m-d H:i'), ...) - Livewire/Booking.php,
+        // reducedTimeslots(). Without the second form nothing ever matched and no
+        // time slot was ever disabled on the public booking form.
+        $both = [];
+        foreach ($booked as $dateTime) {
+            $both[] = $dateTime;
+            if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/', $dateTime, $m) === 1) {
+                $both[] = $m[0];
+            }
+        }
+
+        return array_values(array_unique($both));
+    }
+
+    /** @return array<int, string> blocked date-times (Y-m-d H:i:s) */
+    private function blockedDateTimes(Collection $timeslots, Carbon $date, ?int $noOfGuest): array
+    {
         $booked = $this->fullyBookedByTablesAndNotes($timeslots, $date, $noOfGuest);
 
         // The two online-only limits. Neither applies to large parties (those

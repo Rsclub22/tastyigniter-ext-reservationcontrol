@@ -124,10 +124,11 @@ a Livewire render listener to any component that has public `date` and `guest` p
 
 ² Time slots *less than* N minutes before closing are closed online (use it when the kitchen
 closes before the venue); a slot exactly N minutes before closing stays bookable. 0 (default)
-turns it off; the largest value is 1440, anything above counts as unset. Not applied to large parties or phone intake.
+turns it off; the largest value is 1440, anything above counts as unset. Not applied to large parties or phone intake. Only effective from the fix that made blocked
+slots visible to the Orange theme (see CHANGELOG): before it, this setting had no effect online.
 
 ³ The cap from a closure note (`max N PAX`); a booking that exactly reaches the cap still fits.
-Not applied to large parties or phone intake.
+Not applied to large parties or phone intake. Likewise only effective from that fix.
 
 Blocked days can be left open for online booking per day (checkbox in the block form, optional
 `online` flag on the API).

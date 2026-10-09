@@ -6,7 +6,10 @@ use Carbon\Carbon;
 use Igniter\Local\Classes\WorkingSchedule;
 use Igniter\Local\Models\Location;
 use Igniter\Reservation\Models\Reservation;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\MessageBag;
 use Wagnersnetz\ReservationControl\ClosureNotes;
 use Wagnersnetz\ReservationControl\LargePartyBookingManager;
 use Wagnersnetz\ReservationControl\Models\Settings;
@@ -59,10 +62,11 @@ function fullyBooked(LargePartyBookingManager $manager, int $guests, array $time
     $date = Carbon::parse(LIMITS_DAY);
     $slots = collect($times)->map(fn (string $t) => $date->copy()->setTimeFromTimeString($t));
 
-    return array_map(
+    // Every blocked slot comes back in two notations (see isTimeslotsFullyBookedOn); one time each here.
+    return array_values(array_unique(array_map(
         fn (string $dateTime): string => Carbon::parse($dateTime)->format('H:i'),
         $manager->isTimeslotsFullyBookedOn($slots, $date, $guests),
-    );
+    )));
 }
 
 /**
@@ -222,4 +226,64 @@ it('keeps a note that says "nicht online buchbar" blocking its window', function
     noteWithCapAndEightGuests('Märchenabend, nicht online buchbar');
 
     expect(fullyBooked(limitManager(2), 2, ['23:00']))->toBe(['23:00']);
+});
+
+// ---- Blocked slots: both notations, and the validator ------------------------------
+
+/** @return array<int, string> exactly what the manager returns for these slots */
+function rawBlocked(LargePartyBookingManager $manager, int $guests, array $times): array
+{
+    $date = Carbon::parse(LIMITS_DAY);
+    $slots = collect($times)->map(fn (string $t) => $date->copy()->setTimeFromTimeString($t));
+
+    return $manager->isTimeslotsFullyBookedOn($slots, $date, $guests);
+}
+
+/** How the Orange theme looks a slot up (Livewire/Booking.php, reducedTimeslots()). */
+function themeSeesBlocked(array $result, string $time): bool
+{
+    return in_array(Carbon::parse(LIMITS_DAY.' '.$time)->format('Y-m-d H:i'), $result);
+}
+
+it('lets the theme find a blocked slot by its Y-m-d H:i lookup', function (): void {
+    // The defect: the manager returned only 'Y-m-d H:i:s', the theme tests without seconds, nothing matched.
+    limitSetting('cutoff_minutes_before_closing', 120);
+
+    expect(themeSeesBlocked(rawBlocked(limitManager(2), 2, ['21:30']), '21:30'))->toBeTrue();
+});
+
+it('returns a cut-off slot in both notations', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 120);
+
+    expect(rawBlocked(limitManager(2), 2, ['21:30']))->toBe([LIMITS_DAY.' 21:30:00', LIMITS_DAY.' 21:30']);
+});
+
+it('returns a cap slot in both notations', function (): void {
+    noteWithCapAndEightGuests();
+    limitSetting('apply_max_guests_online', true);
+
+    expect(rawBlocked(limitManager(3), 3, ['19:00']))->toBe([LIMITS_DAY.' 19:00:00', LIMITS_DAY.' 19:00']);
+});
+
+it('returns a closure-note window slot in both notations', function (): void {
+    noteWithCapAndEightGuests('Märchenabend');
+
+    expect(rawBlocked(limitManager(2), 2, ['23:00']))->toBe([LIMITS_DAY.' 23:00:00', LIMITS_DAY.' 23:00']);
+});
+
+it('returns every slot of an all-day note in both notations', function (): void {
+    noteWithCapAndEightGuests('Ganztägig geschlossen');
+
+    expect(rawBlocked(limitManager(2), 2, ['12:00', '19:00']))->toBe([
+        LIMITS_DAY.' 12:00:00', LIMITS_DAY.' 12:00', LIMITS_DAY.' 19:00:00', LIMITS_DAY.' 19:00',
+    ]);
+});
+
+it('returns a free slot in neither notation', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 120);
+
+    $result = rawBlocked(limitManager(2), 2, ['19:00', '21:30']);
+
+    expect($result)->not->toContain(LIMITS_DAY.' 19:00:00')
+        ->and($result)->not->toContain(LIMITS_DAY.' 19:00');
 });

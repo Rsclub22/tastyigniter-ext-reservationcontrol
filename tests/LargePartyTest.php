@@ -204,5 +204,5 @@ it('runs the table check for large parties when the switch is off', function ():
     storeSetting('large_party_skip_table_check', false);
 
     // 18:30 overlaps the booking on the only table that seats 25; 21:00 does not.
-    expect(takenSlotsForLargeParty())->toBe(['2030-06-10 18:30:00']);
+    expect(takenSlotsForLargeParty())->toBe(['2030-06-10 18:30:00', '2030-06-10 18:30']);
 });
