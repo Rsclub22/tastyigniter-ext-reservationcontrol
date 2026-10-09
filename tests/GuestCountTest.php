@@ -89,3 +89,17 @@ it('tightens the telephone rule on the form recognised by the configured fields'
     $validator = Validator::make([], ['name' => 'nullable', 'phone' => 'nullable', 'telephone' => 'nullable']);
     expect($validator->getRules()['telephone'])->toContain('required');
 });
+
+it('knows no guest count when the remembered component is not an Orange booking', function (): void {
+    $foreign = new class
+    {
+        public int $guest = 99;
+    };
+    BookingContext::remember($foreign);
+
+    try {
+        expect(app(GuestCountResolver::class)->guestCount())->toBeNull();
+    } finally {
+        BookingContext::forget($foreign);
+    }
+});

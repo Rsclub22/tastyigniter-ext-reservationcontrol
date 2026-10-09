@@ -4,32 +4,31 @@ declare(strict_types=1);
 
 namespace Wagnersnetz\ReservationControl;
 
-use Igniter\Orange\Livewire\Booking;
 use Wagnersnetz\ReservationControl\Contracts\GuestCountResolver;
 
 /**
- * Holds the currently running Orange Booking component (only ever used when
- * that theme is installed) and answers the guest-count question through the
+ * Holds the currently running booking component of a theme integration (in
+ * practice the Orange theme's Livewire Booking) and answers the guest-count question through the
  * GuestCountResolver. The manager gets the count nowhere else: it is resolved
  * as a singleton and makeTimeSlots() only receives a date.
  */
 class BookingContext
 {
-    private static ?Booking $component = null;
+    private static ?object $component = null;
 
-    public static function remember(Booking $component): void
+    public static function remember(object $component): void
     {
         self::$component = $component;
     }
 
-    public static function forget(Booking $component): void
+    public static function forget(object $component): void
     {
         if (self::$component === $component) {
             self::$component = null;
         }
     }
 
-    public static function component(): ?Booking
+    public static function component(): ?object
     {
         return self::$component;
     }

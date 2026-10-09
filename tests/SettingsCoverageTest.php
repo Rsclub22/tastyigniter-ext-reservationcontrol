@@ -16,6 +16,7 @@ use Wagnersnetz\ReservationControl\Extension;
 use Wagnersnetz\ReservationControl\Http\Controllers\InternalApiController;
 use Wagnersnetz\ReservationControl\Http\Controllers\InternalBookingController;
 use Wagnersnetz\ReservationControl\Http\Middleware\InternalNetworkOnly;
+use Wagnersnetz\ReservationControl\LargePartyBookingManager;
 use Wagnersnetz\ReservationControl\Models\Settings;
 use Wagnersnetz\ReservationControl\Rooms;
 use Wagnersnetz\ReservationControl\TableAllocator;
@@ -177,6 +178,10 @@ it('has a form default that equals the reader default for the fields compared', 
         ->and($fields['max_phone_length']['default'])->toBe(Extension::maxPhoneLength())
         ->and($fields['trusted_proxies']['default'])->toBe(implode("\n", Extension::trustedProxies()))
         ->and($fields['internal_allowed_networks']['default'])->toBe(implode("\n", InternalNetworkOnly::allowedNetworks()))
+        ->and($fields['large_party_threshold']['default'])->toBe(LargePartyBookingManager::threshold())
+        ->and($fields['large_party_open']['default'])->toBe(LargePartyBookingManager::windowOpen())
+        ->and($fields['large_party_close']['default'])->toBe(LargePartyBookingManager::windowClose())
+        ->and($fields['internal_booking_horizon_days']['default'])->toBe(LargePartyBookingManager::internalHorizonDays())
         ->and($fields['reply_to_address']['default'])->toBe('');
 });
 

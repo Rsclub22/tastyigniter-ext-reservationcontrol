@@ -3,6 +3,7 @@
 use Wagnersnetz\ReservationControl\DailySheet;
 use Wagnersnetz\ReservationControl\Extension;
 use Wagnersnetz\ReservationControl\Http\Middleware\InternalNetworkOnly;
+use Wagnersnetz\ReservationControl\LargePartyBookingManager;
 use Wagnersnetz\ReservationControl\Rooms;
 use Wagnersnetz\ReservationControl\TableAllocator;
 
@@ -24,7 +25,7 @@ return [
                 'label' => 'lang:reservationcontrol::default.label_large_party_threshold',
                 'comment' => 'lang:reservationcontrol::default.help_large_party_threshold',
                 'type' => 'number',
-                'default' => 20,
+                'default' => LargePartyBookingManager::DEFAULT_THRESHOLD,
             ],
             'large_party_open' => [
                 'label' => 'lang:reservationcontrol::default.label_large_party_open',
@@ -32,7 +33,7 @@ return [
                 'span' => 'left',
                 'type' => 'text',
                 'placeholder' => 'HH:MM',
-                'default' => '10:00',
+                'default' => LargePartyBookingManager::DEFAULT_OPEN,
             ],
             'large_party_close' => [
                 'label' => 'lang:reservationcontrol::default.label_large_party_close',
@@ -40,7 +41,7 @@ return [
                 'span' => 'right',
                 'type' => 'text',
                 'placeholder' => 'HH:MM',
-                'default' => '22:00',
+                'default' => LargePartyBookingManager::DEFAULT_CLOSE,
             ],
             'large_party_all_weekdays' => [
                 'label' => 'lang:reservationcontrol::default.label_large_party_all_weekdays',
@@ -58,7 +59,7 @@ return [
                 'label' => 'lang:reservationcontrol::default.label_internal_booking_horizon_days',
                 'comment' => 'lang:reservationcontrol::default.help_internal_booking_horizon_days',
                 'type' => 'number',
-                'default' => 365,
+                'default' => LargePartyBookingManager::DEFAULT_INTERNAL_HORIZON_DAYS,
             ],
             'split_time' => [
                 'label' => 'lang:reservationcontrol::default.label_split_time',

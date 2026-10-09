@@ -178,9 +178,7 @@ class LargePartyBookingManager extends BookingManager
     /** From this guest count on, the opening hours no longer apply. */
     public static function threshold(): int
     {
-        $value = self::stored('large_party_threshold');
-
-        return is_numeric($value) && (int) $value > 0 ? (int) $value : self::DEFAULT_THRESHOLD;
+        return SettingValue::int('large_party_threshold', self::DEFAULT_THRESHOLD);
     }
 
     /** Start of the time window offered to large parties. */
@@ -215,8 +213,8 @@ class LargePartyBookingManager extends BookingManager
      */
     private static function window(): array
     {
-        $open = self::validTime(self::stored('large_party_open'), self::DEFAULT_OPEN);
-        $close = self::validTime(self::stored('large_party_close'), self::DEFAULT_CLOSE);
+        $open = self::validTime(SettingValue::stored('large_party_open'), self::DEFAULT_OPEN);
+        $close = self::validTime(SettingValue::stored('large_party_close'), self::DEFAULT_CLOSE);
 
         return $close > $open ? [$open, $close] : [self::DEFAULT_OPEN, self::DEFAULT_CLOSE];
     }
@@ -224,9 +222,7 @@ class LargePartyBookingManager extends BookingManager
     /** A switch that is on unless explicitly turned off, so an unset value keeps today's behaviour. */
     private static function flag(string $key): bool
     {
-        $value = self::stored($key);
-
-        return $value === null || $value === '' ? true : filter_var($value, FILTER_VALIDATE_BOOLEAN);
+        return SettingValue::flag($key, true);
     }
 
     /**
@@ -237,18 +233,7 @@ class LargePartyBookingManager extends BookingManager
      */
     public static function internalHorizonDays(): int
     {
-        $value = self::stored('internal_booking_horizon_days');
-
-        return is_numeric($value) && (int) $value > 0 ? (int) $value : self::DEFAULT_INTERNAL_HORIZON_DAYS;
-    }
-
-    /**
-     * Reads a stored setting. Settings::get() is typed by Eloquent as a Collection,
-     * so the result is only ever checked here, never trusted.
-     */
-    private static function stored(string $key): mixed
-    {
-        return Settings::get($key);
+        return SettingValue::int('internal_booking_horizon_days', self::DEFAULT_INTERNAL_HORIZON_DAYS);
     }
 
     private static function validTime(mixed $value, string $default): string

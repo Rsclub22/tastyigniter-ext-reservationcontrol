@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wagnersnetz\ReservationControl\Theme;
 
+use Igniter\Orange\Livewire\Booking;
 use Wagnersnetz\ReservationControl\BookingContext;
 use Wagnersnetz\ReservationControl\Contracts\GuestCountResolver;
 
@@ -19,6 +20,10 @@ final class OrangeGuestCount implements GuestCountResolver
     {
         $component = BookingContext::component();
 
-        return is_null($component?->guest) ? null : (int) $component->guest;
+        if (! $component instanceof Booking) {
+            return null;
+        }
+
+        return is_null($component->guest) ? null : (int) $component->guest;
     }
 }
