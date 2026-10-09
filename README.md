@@ -66,8 +66,9 @@ setup.
 
 TastyIgniter's automatic table assignment can stay **on**. It only ever assigns a table that
 actually fits the party, so the cases where a human should decide fall out on their own: a
-large party that fits no single table, a closure note, and any time inside an event window are
-left untouched for staff to place by hand. Everyday bookings get a table without anyone
+large party that fits no single table, a closure note, and any event time are left untouched
+for staff to place by hand. An event time is guaranteed to stay without a table: whatever the
+automatic assignment puts there on its own is taken back after saving. Everyday bookings get a table without anyone
 looking at them.
 
 The extension's online limits - cut-off, guest cap, closure-note windows and all-day notes -
@@ -86,17 +87,25 @@ read for a few German keywords (this parser is German-only on purpose):
 - `online buchbar`: the note's time window stays open for online booking, e.g.
   `Märchenabend, online buchbar`. Any negation in front of it (`nicht online buchbar`) or any
   all-day wording in the same note keeps the window closed.
-- A time in an opted-in note (`17 Uhr`, `ab 17:30 Uhr`, `11 Uhr und 13 Uhr`) is an **event
-  slot**: it becomes bookable inside the note's stored window (start plus duration, the
-  *envelope*, which otherwise blocks). A slot runs to the next stated time or to the end of
-  the envelope: `MÄRCHENABEND 17 UHR` with an envelope of 16:00-20:00 offers 17:00-20:00. If
-  the envelope overlaps the day's opening hours the event slots *replace* them, otherwise
-  they are *added* beside them. A time outside the envelope or that is no clock time opens
-  nothing, and a window that would overlap another is dropped - the booking page never
-  receives overlapping periods. Without `online buchbar` the stated times open nothing.
+- A time written in the note (`17 Uhr`, `ab 17:30 Uhr`, `11 Uhr und 13 Uhr`) is an **event
+  time**: exactly that time, not a window. The note's stored window (start plus duration, the
+  *envelope*) stays blocked for everything else: `MÄRCHENABEND 17 UHR` with an envelope of
+  16:00-20:00 offers 17:00 and nothing else of the evening; `11 Uhr und 13 Uhr` offers those
+  two. A time outside the envelope or that is no clock time is no event time. The text after
+  `online buchbar:` is for guests and is not read for times. Lunch and the rest of the day are
+  not touched: ordinary table logic, and the online cut-off still applies there.
+  - **At an event time people are counted, not tables.** No table check decides, no table is
+    assigned, and the note's guest cap governs, counting everything already booked at that time
+    (a cap written for one time beats the general one). Online, the cap is enforced when
+    `apply_max_guests_online` is on; phone intake shows it and warns.
+  - **Phone intake always takes event times**, with or without `online buchbar`, so that staff
+    are never locked out of a day by a note they wrote.
+  - **Online only with `online buchbar`.** Without it the envelope blocks and the stated times
+    open nothing. If the envelope overlaps the day's opening hours the event times *replace*
+    them, otherwise they are *added* beside them. The booking page never receives overlapping
+    periods: a time that would overlap another is dropped. The online cut-off does not apply to
+    an event time.
   `ClosureNotes::eventPlan()` returns what was understood (see `EventPlan`).
-  **Known limit:** a closure note that occupies the tables still makes the table check
-  report its event slot as fully booked; see the changelog.
 
 ### Guest notice on special days
 

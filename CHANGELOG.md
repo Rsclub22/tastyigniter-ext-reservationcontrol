@@ -2,15 +2,29 @@
 
 ## Unreleased
 
+### Changed
+
+- Event times are no longer windows: the first version offered everything from the stated
+  time to the end of the note's window (17:00, 17:15 ... 19:45 for "17 UHR"), let the table
+  check call every one of them taken on the internal page, and applied the guest cap per
+  quarter hour. An opted-in note that names a time now closes the rest of its window.
+  A time written inside the `online buchbar:` guest text no longer counts. Times that a note
+  names outside its own window are no longer offered by phone either.
+
 ### Added
 
-- Event slots in closure notes: an opted-in note (`online buchbar`) that states a time
-  ("MÄRCHENABEND 17 UHR") makes that time bookable inside its stored window, replacing or
-  extending the day's opening hours depending on whether the window overlaps them. First
-  change that creates bookable time instead of removing it. Never throws on the booking
-  page: unplaceable or overlapping times are dropped. `ClosureNotes::eventPlan()` exposes
-  the interpretation. Known limit: tables occupied by the note itself still report the slot
-  as fully booked.
+- Event times in closure notes: a time written in a note ("MÄRCHENABEND 17 UHR") is exactly
+  one bookable time inside the note's stored window - `17 UHR` is 17:00, `11 Uhr und 13 Uhr` is
+  those two, the rest of the window stays blocked. Online they open only with `online
+  buchbar`, replacing or extending the day's opening hours depending on whether the window
+  overlaps them; phone intake takes them always. First change that creates bookable time
+  instead of removing it. Never throws on the booking page: unplaceable or overlapping times
+  are dropped. `ClosureNotes::eventPlan()` and `ClosureNotes::eventTimes()` expose the
+  interpretation.
+- At an event time people are counted, not tables: no table check, no table assigned (what
+  TastyIgniter's automatic assignment adds on its own is taken back), the note's guest cap
+  governs and counts what is already booked at that time. The internal page offers such
+  times without a table instead of reading "belegt".
 - First public version, extracted from one restaurant's live installation and generalised
   into a standalone package: large-party rules, internal phone-intake pages and JSON API,
   closure notes and blocked days, table allocation, daily sheet, console commands, and a
