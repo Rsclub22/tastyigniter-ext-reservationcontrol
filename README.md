@@ -61,11 +61,19 @@ composer require wagnersnetz/ti-ext-reservationcontrol
 php artisan igniter:up
 ```
 
-Then open *Manage → Settings → Reservation Control*, set the networks and proxies for your
-setup, and turn TastyIgniter's automatic table assignment off - the extension assigns tables
-itself. The extension's online limits (cut-off, guest cap, closure-note windows, all-day notes)
-do **not** depend on that setting: blocked times are left out of the online time list, and a
-submitted booking in one is refused, whether it is on or off.
+Then open *Manage → Settings → Reservation Control* and set the networks and proxies for your
+setup.
+
+TastyIgniter's automatic table assignment can stay **on**. It only ever assigns a table that
+actually fits the party, so the cases where a human should decide fall out on their own: a
+large party that fits no single table, a closure note, and any time inside an event window are
+left untouched for staff to place by hand. Everyday bookings get a table without anyone
+looking at them.
+
+The extension's online limits - cut-off, guest cap, closure-note windows and all-day notes -
+do **not** depend on that setting either way: blocked times are left out of the online time
+list, and a submitted booking in one is refused. Earlier versions of this file advised turning
+the setting off, which quietly disabled the theme's own availability display as well.
 
 ## Closure note keywords
 
