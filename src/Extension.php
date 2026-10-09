@@ -400,7 +400,13 @@ class Extension extends BaseExtension
      */
     private function registerInternalRoutes(): void
     {
-        Route::middleware(['web', InternalNetworkOnly::class])
+        // The 'igniter' group carries TastyIgniter's Localization middleware,
+        // which sets the request locale from the installation's default
+        // language. Without it these pages render in config('app.locale')
+        // regardless: an installation whose default language is German served
+        // English internal pages, because nothing on this route ever set the
+        // locale. Found while deploying to the first real installation.
+        Route::middleware(['web', 'igniter', InternalNetworkOnly::class])
             ->prefix('intern')
             ->group(function (): void {
                 Route::get('/', [InternalBookingController::class, 'index'])->name('reservationcontrol.intern');

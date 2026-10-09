@@ -54,3 +54,18 @@ it('keeps the data-bearing markers untouched for now', function (): void {
 it('registers the internal booking page at /intern', function (): void {
     expect(route('reservationcontrol.intern', absolute: false))->toBe('/intern');
 });
+
+/**
+ * The internal pages must follow the installation's default language. They are
+ * registered outside TastyIgniter's themed routes, so nothing sets the locale
+ * for them unless the 'igniter' middleware group - which carries the
+ * Localization middleware - is on the group. A German installation served
+ * English internal pages until this was added.
+ */
+it('puts the internal pages behind the igniter middleware group', function (): void {
+    $route = collect(app('router')->getRoutes())
+        ->first(fn ($r): bool => $r->getName() === 'reservationcontrol.intern');
+
+    expect($route)->not->toBeNull()
+        ->and($route->gatherMiddleware())->toContain('igniter');
+});
