@@ -76,6 +76,25 @@ read for a few German keywords (this parser is German-only on purpose):
   `Märchenabend, online buchbar`. Any negation in front of it (`nicht online buchbar`) or any
   all-day wording in the same note keeps the window closed.
 
+### Guest notice on special days
+
+A guest who books an online-open special day sees a notice above the booking form. Two
+sources, both optional:
+
+- A blocked day with *Guests can book online* ticked: the text field next to it on
+  `/intern/sperren` (`hinweis`, up to 300 characters; optional string `hinweis` on
+  `POST /api/intern/sperrtage`). Stored as
+  `{"2026-12-31": {"grund": "...", "online": true, "hinweis": "..."}}`.
+- A closure note: `online buchbar` followed by a colon and the text, up to the end of the
+  line, e.g. `Märchenabend, max 60 PAX, online buchbar: Märchenabend mit Menü ab 18 Uhr`. No
+  colon or nothing after it means no text; the window still opens. A clause on the next line
+  is not part of the text.
+
+A blocked day's `hinweis` wins over notes; without one, the day's opted-in notes speak. A day
+that is still blocked never shows a notice. The text is HTML-escaped. The notice is added by
+a Livewire render listener to any component that has public `date` and `guest` properties
+(the Orange booking form does); any error is logged and the form renders without it.
+
 ## Settings overview
 
 | Group | Settings |

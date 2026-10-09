@@ -25,9 +25,15 @@
   "nicht online buchbar", "online nicht mehr buchbar", "keine online" and "ganztägig" always
   keep it closed.
 
+- Guest notice on online-open special days, shown above the booking form: the new `hinweis`
+  per blocked day (text field under `/intern/sperren`, optional string `hinweis` on
+  `POST /api/intern/sperrtage`), or the text after `online buchbar:` in a closure note (to the
+  end of the line). Escaped, never shown on a day that is still blocked, and failures are
+  logged without affecting the form.
+
 ### Changed
 
-- Blocked days are stored as `{"grund": ..., "online": ...}` per date. Existing plain-string
+- Blocked days are stored as `{"grund": ..., "online": ..., "hinweis": ...}` per date. Existing plain-string
   entries are still read and keep blocking online booking; nothing needs migrating.
 - The unused global setting `allow_online_on_blocked_default` is removed (it never had an
   effect; the choice is now made per day).
