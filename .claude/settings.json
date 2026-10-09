@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose -f docker-compose.dev.yml run --rm php vendor/bin/pest:*)",
+      "Bash(docker compose -f docker-compose.dev.yml run --rm php vendor/bin/pint:*)",
+      "Bash(docker compose -f docker-compose.dev.yml run --rm php vendor/bin/phpstan:*)",
+      "Bash(docker compose -f docker-compose.dev.yml down:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard.sh" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pint.sh", "timeout": 120 }]
+      }
+    ]
+  }
+}
