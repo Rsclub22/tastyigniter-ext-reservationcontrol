@@ -9,14 +9,16 @@
     Mittagsblatt im Hefter haben.
 --}}
 @php
+    $l = 'reservationcontrol::default.';
+    $loc = app()->getLocale();
     $titel = $sammeldruck
-        ? $von->locale('de')->isoFormat('D.M.') . '–' . $bis->locale('de')->isoFormat('D.M.YYYY')
-        : $von->locale('de')->isoFormat('dddd, D. MMMM YYYY');
+        ? $von->locale($loc)->isoFormat(__($l.'format_range_from')) . '–' . $bis->locale($loc)->isoFormat(__($l.'format_range_to'))
+        : $von->locale($loc)->isoFormat(__($l.'format_weekday_date_year'));
     // Ohne Tage wird trotzdem ein Blatt gedruckt - das mit dem Hinweis darauf.
     $blattZahl = max(1, collect($tage)->sum(fn(array $t): int => max(1, count($t['blaetter']))));
 @endphp
 <!DOCTYPE html>
-<html lang="de">
+<html lang="{{ str_replace('_', '-', $loc) }}">
 <head>
     <meta charset="utf-8">
     <title>{{ $titel }} – {{ $standort->location_name }}</title>
@@ -157,13 +159,13 @@
 <body>
 
 <div class="leiste">
-    <button type="button" onclick="window.print()">Drucken</button>
-    <a href="/intern?datum={{ $von->toDateString() }}">Zurück zur Telefonannahme</a>
+    <button type="button" onclick="window.print()">{{ __($l.'print_button') }}</button>
+    <a href="/intern?datum={{ $von->toDateString() }}">{{ __($l.'print_back') }}</a>
     <span class="fuellen">
         {{ $titel }} &middot;
-        {{ $blattZahl }} {{ $blattZahl === 1 ? 'Blatt' : 'Blätter' }}
-        @if ($sammeldruck) &middot; {{ count($tage) }} {{ count($tage) === 1 ? 'Tag' : 'Tage' }} @endif
-        @if ($trennzeit) &middot; Trennung {{ $trennzeit }} Uhr @else &middot; ohne Trennung @endif
+        {{ trans_choice($l.'count_sheets', $blattZahl) }}
+        @if ($sammeldruck) &middot; {{ trans_choice($l.'count_days', count($tage)) }} @endif
+        @if ($trennzeit) &middot; {{ __($l.'print_split_at', ['time' => $trennzeit]) }} @else &middot; {{ __($l.'print_no_split') }} @endif
     </span>
 </div>
 
@@ -177,26 +179,25 @@
         <div class="blatt">
             <div class="kopf">
                 <div>
-                    <div class="tag">{{ $tag['datum']->locale('de')->isoFormat('dddd, D. MMMM YYYY') }}</div>
+                    <div class="tag">{{ $tag['datum']->locale($loc)->isoFormat(__($l.'format_weekday_date_year')) }}</div>
                     <div class="ort">{{ $standort->location_name }}</div>
                 </div>
                 <div class="rechts">
-                    <div class="abschnitt">{{ $blatt['titel'] ?? 'Keine Reservierungen' }}</div>
+                    <div class="abschnitt">{{ $blatt['titel'] ?? __($l.'print_no_reservations') }}</div>
                     @if ($blatt)
                         <div class="zahlen">
-                            {{ $blatt['reservierungen']->count() }}
-                            {{ $blatt['reservierungen']->count() === 1 ? 'Reservierung' : 'Reservierungen' }}
-                            &middot; {{ $gaeste }} {{ $gaeste === 1 ? 'Gast' : 'Gäste' }}
+                            {{ trans_choice($l.'count_reservations', $blatt['reservierungen']->count()) }}
+                            &middot; {{ trans_choice($l.'count_guests', $gaeste) }}
                         </div>
                     @endif
-                    <div class="seite">Blatt {{ $i + 1 }} von {{ count($abschnitte) }}</div>
+                    <div class="seite">{{ __($l.'print_sheet_of', ['number' => $i + 1, 'total' => count($abschnitte)]) }}</div>
                 </div>
             </div>
 
             @if ($tag['gesperrt'])
                 <div class="sperrhinweis">
-                    Dieser Tag ist gesperrt – online sind keine Reservierungen möglich.
-                    @if ($tag['grund']) Grund: {{ $tag['grund'] }} @endif
+                    {{ __($l.'print_day_blocked') }}
+                    @if ($tag['grund']) {{ __($l.'print_reason', ['reason' => $tag['grund']]) }} @endif
                 </div>
             @endif
 
@@ -206,7 +207,7 @@
             @foreach ($tag['sperrvermerke'] as $v)
                 <div class="vermerk">
                     <div class="vermerk-kopf">
-                        <span>Achtung – Sperrvermerk</span>
+                        <span>{{ __($l.'note_heading') }}</span>
                         <span class="wann">
                             {{ \Carbon\Carbon::parse($v->reserve_time)->format('H:i') }}–{{ $v->reservation_end_datetime->format('H:i') }}
                         </span>
@@ -216,14 +217,12 @@
                     @endif
                     <div class="vermerk-fuss">
                         @if ($tag['paxJeZeit'])
-                            <strong>Höchstens
-                                @foreach ($tag['paxJeZeit'] as $zeit => $zahl){{ $zeit }} Uhr: {{ $zahl }}@if (!$loop->last), @endif @endforeach
-                                Personen.</strong>
+                            @php($eintraege = collect($tag['paxJeZeit'])->map(fn ($zahl, $zeit) => __($l.'max_pax_entry', ['time' => $zeit, 'count' => $zahl]))->implode(', '))
+                            <strong>{{ __($l.'max_pax_at_times', ['entries' => $eintraege]) }}</strong>
                         @elseif ($tag['maxPax'])
-                            <strong>Höchstens {{ $tag['maxPax'] }} Personen je Zeit.</strong>
+                            <strong>{{ __($l.'max_pax_per_time', ['count' => $tag['maxPax']]) }}</strong>
                         @endif
-                        Blockiert die Online-Buchung dieses Tages &middot; kein Gast &middot;
-                        nicht in den Zahlen oben enthalten &middot; Nr. {{ $v->getKey() }}
+                        {{ __($l.'print_note_footer', ['id' => $v->getKey()]) }}
                         @if (trim($v->first_name.' '.$v->last_name))
                             &middot; {{ trim($v->first_name.' '.$v->last_name) }}
                         @endif
@@ -235,14 +234,14 @@
                 <table>
                     <thead>
                     <tr>
-                        <th class="s-haken">Da</th>
-                        <th class="s-zeit">Zeit</th>
-                        <th>Name</th>
-                        <th class="s-pers">Pers.</th>
-                        <th class="s-tisch">Tisch / Raum</th>
-                        <th class="s-tel">Telefon</th>
-                        <th>Notiz</th>
-                        <th class="s-nr">Nr.</th>
+                        <th class="s-haken">{{ __($l.'col_arrived') }}</th>
+                        <th class="s-zeit">{{ __($l.'col_time') }}</th>
+                        <th>{{ __($l.'col_name') }}</th>
+                        <th class="s-pers">{{ __($l.'col_persons') }}</th>
+                        <th class="s-tisch">{{ __($l.'col_table_room') }}</th>
+                        <th class="s-tel">{{ __($l.'col_telephone') }}</th>
+                        <th>{{ __($l.'col_note') }}</th>
+                        <th class="s-nr">{{ __($l.'col_number') }}</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -256,7 +255,7 @@
                             <td>
                                 <span class="name">{{ trim($r->first_name.' '.$r->last_name) ?: '—' }}</span>
                                 @if ((int)$r->status_id !== $bestaetigt)
-                                    <span class="status">{{ $status[(int)$r->status_id] ?? 'ohne Status' }}</span>
+                                    <span class="status">{{ $status[(int)$r->status_id] ?? __($l.'print_no_status') }}</span>
                                 @endif
                             </td>
                             <td class="s-pers">{{ $r->guest_num }}</td>
@@ -265,7 +264,7 @@
                                 @if ($tische)
                                     {{ $tische }}
                                 @else
-                                    <span class="ohne">ohne Tisch</span>
+                                    <span class="ohne">{{ __($l.'print_no_table') }}</span>
                                 @endif
                             </td>
                             <td class="s-tel">{{ $r->telephone ?: '' }}</td>
@@ -276,12 +275,12 @@
                     </tbody>
                 </table>
             @else
-                <p class="leer">An diesem Tag liegt keine Reservierung vor.</p>
+                <p class="leer">{{ __($l.'print_no_reservation_day') }}</p>
             @endif
 
             <div class="fuss">
-                <span>Gedruckt {{ $gedruckt->locale('de')->isoFormat('D.MM.YYYY, HH:mm') }} Uhr</span>
-                <span>Stornierte Reservierungen sind nicht aufgeführt.</span>
+                <span>{{ __($l.'print_printed_at', ['date' => $gedruckt->locale($loc)->isoFormat(__($l.'format_printed_at'))]) }}</span>
+                <span>{{ __($l.'print_canceled_not_listed') }}</span>
                 <span class="rechts">{{ $standort->location_name }}</span>
             </div>
         </div>
@@ -294,15 +293,15 @@
                 <div class="ort">{{ $standort->location_name }}</div>
             </div>
             <div class="rechts">
-                <div class="abschnitt">Keine Reservierungen</div>
-                <div class="seite">Blatt 1 von 1</div>
+                <div class="abschnitt">{{ __($l.'print_no_reservations') }}</div>
+                <div class="seite">{{ __($l.'print_sheet_of', ['number' => 1, 'total' => 1]) }}</div>
             </div>
         </div>
 
-        <p class="leer">In diesem Zeitraum liegt keine Reservierung vor.</p>
+        <p class="leer">{{ __($l.'print_no_reservation_period') }}</p>
 
         <div class="fuss">
-            <span>Gedruckt {{ $gedruckt->locale('de')->isoFormat('D.MM.YYYY, HH:mm') }} Uhr</span>
+            <span>{{ __($l.'print_printed_at', ['date' => $gedruckt->locale($loc)->isoFormat(__($l.'format_printed_at'))]) }}</span>
             <span class="rechts">{{ $standort->location_name }}</span>
         </div>
     </div>

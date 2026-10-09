@@ -35,7 +35,7 @@ use Wagnersnetz\ReservationControl\Rooms;
  * with notify=false so that the status mail stays out as well.
  *
  * The request parameters and the keys of the view data stay German: they are
- * the field names of the forms in the Blade views, which are still German.
+ * the field names of the forms and the contract with the app at the counter.
  */
 class InternalBookingController extends Controller
 {
@@ -144,9 +144,13 @@ class InternalBookingController extends Controller
             'notiz' => ['nullable', 'string', 'max:500'],
             'raum' => ['nullable', 'integer'],
         ], [], [
-            'datum' => 'Datum', 'zeit' => 'Uhrzeit', 'gaeste' => 'Personenzahl',
-            'nachname' => 'Nachname', 'telefon' => 'Telefon',
-            'email' => 'E-Mail', 'notiz' => 'Notiz',
+            'datum' => __('reservationcontrol::default.attribute_date'),
+            'zeit' => __('reservationcontrol::default.attribute_time'),
+            'gaeste' => __('reservationcontrol::default.attribute_guests'),
+            'nachname' => __('reservationcontrol::default.attribute_last_name'),
+            'telefon' => __('reservationcontrol::default.attribute_telephone'),
+            'email' => __('reservationcontrol::default.attribute_email'),
+            'notiz' => __('reservationcontrol::default.attribute_note'),
         ]);
 
         $date = Carbon::parse($data['datum']);
@@ -185,7 +189,10 @@ class InternalBookingController extends Controller
         $data = $request->validate([
             'datum' => ['required', 'date'],
             'grund' => ['nullable', 'string', 'max:120'],
-        ], [], ['datum' => 'Datum', 'grund' => 'Grund']);
+        ], [], [
+            'datum' => __('reservationcontrol::default.attribute_date'),
+            'grund' => __('reservationcontrol::default.attribute_reason'),
+        ]);
 
         $date = Carbon::parse($data['datum'])->toDateString();
         $open = Reservation::query()
@@ -197,19 +204,17 @@ class InternalBookingController extends Controller
         // a mistake - hence reject it instead of blocking silently.
         if ($open > 0) {
             return $this->backTo($request, $date)->withErrors([
-                'datum' => sprintf(
-                    'Am %s liegen bereits %d Reservierungen. Erst absagen, dann sperren.',
-                    Carbon::parse($date)->locale('de')->isoFormat('D. MMMM'), $open,
-                ),
+                'datum' => trans_choice('reservationcontrol::default.error_day_has_reservations', $open, [
+                    'date' => $this->formatDate($date, 'format_day_month'),
+                ]),
             ]);
         }
 
         BlockedDates::block($date, trim((string) ($data['grund'] ?? '')));
 
-        return $this->backTo($request, $date)->with('hinweis', sprintf(
-            '%s ist gesperrt – an diesem Tag sind keine Reservierungen mehr möglich.',
-            Carbon::parse($date)->locale('de')->isoFormat('dddd, D. MMMM'),
-        ));
+        return $this->backTo($request, $date)->with('hinweis', __('reservationcontrol::default.notice_day_blocked', [
+            'date' => $this->formatDate($date, 'format_weekday_date'),
+        ]));
     }
 
     public function unblock(Request $request): RedirectResponse
@@ -219,10 +224,17 @@ class InternalBookingController extends Controller
 
         BlockedDates::unblock($date);
 
-        return $this->backTo($request, $date)->with('hinweis', sprintf(
-            'Sperre für %s aufgehoben.',
-            Carbon::parse($date)->locale('de')->isoFormat('dddd, D. MMMM'),
-        ));
+        return $this->backTo($request, $date)->with('hinweis', __('reservationcontrol::default.notice_day_unblocked', [
+            'date' => $this->formatDate($date, 'format_weekday_date'),
+        ]));
+    }
+
+    /** A date in the format and language of the current locale. */
+    private function formatDate(string $date, string $formatKey): string
+    {
+        return Carbon::parse($date)
+            ->locale(app()->getLocale())
+            ->isoFormat(__('reservationcontrol::default.'.$formatKey));
     }
 
     private function backTo(Request $request, string $date): RedirectResponse

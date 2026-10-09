@@ -1,9 +1,11 @@
+@php($l = 'reservationcontrol::default.')
+@php($loc = app()->getLocale())
 <!DOCTYPE html>
-<html lang="de">
+<html lang="{{ str_replace('_', '-', $loc) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Telefonannahme – {{ $standort->location_name }}</title>
+    <title>{{ __($l.'intern_title') }} – {{ $standort->location_name }}</title>
     <style>
         :root {
             --braun: #60210F;
@@ -183,9 +185,9 @@
 <body>
 
 <div class="kopf">
-    <h1>Telefonannahme</h1>
+    <h1>{{ __($l.'intern_title') }}</h1>
     <span class="ort">{{ $standort->location_name }}</span>
-    <span class="nur-intern">nur intern</span>
+    <span class="nur-intern">{{ __($l.'intern_internal_only') }}</span>
 </div>
 
 <div class="huelle">
@@ -196,7 +198,7 @@
     @foreach ($vermerke as $v)
         <div class="vermerk">
             <div class="vermerk-kopf">
-                <span>Achtung – Sperrvermerk</span>
+                <span>{{ __($l.'note_heading') }}</span>
                 <span class="wann">{{ \Carbon\Carbon::parse($v->reserve_time)->format('H:i') }}–{{ $v->reservation_end_datetime->format('H:i') }}</span>
             </div>
             @if ($v->comment)
@@ -204,29 +206,26 @@
             @endif
             <div class="vermerk-fuss">
                 @if ($ganztags->contains($v))
-                    Online ist dieser Tag dadurch ausgebucht. Telefonisch wird weiter angenommen –
+                    {{ __($l.'note_all_day') }}
                     @if ($vermerkZeiten)
-                        nur zu den im Text genannten Zeiten ({{ implode(' und ', $vermerkZeiten) }} Uhr)
+                        {{ __($l.'note_only_named_times', ['times' => implode(' '.__($l.'word_and').' ', $vermerkZeiten)]) }}
                     @else
-                        zu den gewohnten Zeiten
+                        {{ __($l.'note_usual_times') }}
                     @endif
-                    und ohne Tisch; die Verteilung macht der Tischplan.
+                    {{ __($l.'note_without_table') }}
                 @else
-                    Online ist nur diese Zeit ausgebucht – der übrige Tag bleibt buchbar, er liegt
-                    außerhalb des Vermerks.
+                    {{ __($l.'note_partial') }}
                     @if ($vermerkZeiten)
-                        Telefonisch wird dafür {{ implode(' und ', $vermerkZeiten) }} Uhr angeboten, ohne Tisch;
-                        die Verteilung macht der Tischplan.
+                        {{ __($l.'note_partial_phone', ['times' => __($l.'format_times', ['times' => implode(' '.__($l.'word_and').' ', $vermerkZeiten)])]) }}
                     @endif
                 @endif
                 @if ($paxJeZeit)
-                    <strong>Höchstens
-                        @foreach ($paxJeZeit as $zeit => $zahl){{ $zeit }} Uhr: {{ $zahl }}@if (!$loop->last), @endif @endforeach
-                        Personen.</strong>
+                    @php($eintraege = collect($paxJeZeit)->map(fn ($zahl, $zeit) => __($l.'max_pax_entry', ['time' => $zeit, 'count' => $zahl]))->implode(', '))
+                    <strong>{{ __($l.'max_pax_at_times', ['entries' => $eintraege]) }}</strong>
                 @elseif ($maxPax)
-                    <strong>Höchstens {{ $maxPax }} Personen je Zeit.</strong>
+                    <strong>{{ __($l.'max_pax_per_time', ['count' => $maxPax]) }}</strong>
                 @endif
-                &middot; Reservierung Nr. {{ $v->getKey() }} nicht stornieren.
+                &middot; {{ __($l.'note_do_not_cancel', ['id' => $v->getKey()]) }}
             </div>
         </div>
     @endforeach
@@ -237,25 +236,27 @@
         <div class="quittung">
             <div class="haken">&#10003;</div>
             <div class="quittung-text">
-                <strong>Reservierung angenommen</strong>
+                <strong>{{ __($l.'receipt_title') }}</strong>
                 <div class="gross">
                     {{ trim($neu->first_name.' '.$neu->last_name) }} &middot;
-                    {{ $neu->guest_num }} {{ $neu->guest_num == 1 ? 'Person' : 'Personen' }} &middot;
-                    {{ \Carbon\Carbon::parse($neu->reserve_date)->locale('de')->isoFormat('dddd, D. MMMM') }}
-                    um {{ \Carbon\Carbon::parse($neu->reserve_time)->format('H:i') }} Uhr
+                    {{ trans_choice($l.'count_persons', (int) $neu->guest_num) }} &middot;
+                    {{ __($l.'receipt_when', [
+                        'date' => \Carbon\Carbon::parse($neu->reserve_date)->locale($loc)->isoFormat(__($l.'format_weekday_date')),
+                        'time' => \Carbon\Carbon::parse($neu->reserve_time)->format('H:i'),
+                    ]) }}
                 </div>
                 <div class="zeilen">
-                    Nummer {{ $neu->getKey() }} &middot; Status bestätigt &middot;
+                    {{ __($l.'receipt_number', ['id' => $neu->getKey()]) }} &middot; {{ __($l.'receipt_status_confirmed') }} &middot;
                     @if ($neuTisch)
                         {{ $neuTisch }}
                     @else
-                        <em>kein Tisch zugewiesen – bitte im Admin nachtragen</em>
+                        <em>{{ __($l.'receipt_no_table') }}</em>
                     @endif
                     @if ($neu->telephone) &middot; {{ $neu->telephone }} @endif
                 </div>
-                <div class="zeilen klein">Es wurde keine E-Mail verschickt.</div>
+                <div class="zeilen klein">{{ __($l.'receipt_no_mail') }}</div>
             </div>
-            <a class="schliessen" href="/intern?datum={{ $datum->toDateString() }}&gaeste={{ $gaeste }}">Schließen</a>
+            <a class="schliessen" href="/intern?datum={{ $datum->toDateString() }}&gaeste={{ $gaeste }}">{{ __($l.'action_close') }}</a>
         </div>
     @endif
 
@@ -267,30 +268,30 @@
 
     @if ($errors->any())
         <div class="fehler">
-            <strong>Bitte prüfen:</strong>
+            <strong>{{ __($l.'errors_check') }}</strong>
             <ul>@foreach ($errors->all() as $fehler)<li>{{ $fehler }}</li>@endforeach</ul>
         </div>
     @endif
 
     <div class="karte">
-        <h2>Tag</h2>
+        <h2>{{ __($l.'section_day') }}</h2>
         <form method="get" class="tagwahl">
             @php($heute = \Carbon\Carbon::today())
             @for ($i = 0; $i < 5; $i++)
                 @php($t = $heute->copy()->addDays($i))
                 <a href="/intern?datum={{ $t->toDateString() }}&gaeste={{ $gaeste }}"
                    class="{{ $t->isSameDay($datum) ? 'aktiv' : '' }}">
-                    {{ $i === 0 ? 'Heute' : ($i === 1 ? 'Morgen' : $t->locale('de')->isoFormat('dd D.M.')) }}
+                    {{ $i === 0 ? __($l.'intern_today') : ($i === 1 ? __($l.'intern_tomorrow') : $t->locale($loc)->isoFormat(__($l.'format_weekday_short_date'))) }}
                 </a>
             @endfor
             <input type="date" name="datum" value="{{ $datum->toDateString() }}" onchange="this.form.submit()">
-            <label for="gaeste-wahl" style="margin:0 0 0 10px">Personen</label>
+            <label for="gaeste-wahl" style="margin:0 0 0 10px">{{ __($l.'label_persons') }}</label>
             <input type="number" id="gaeste-wahl" name="gaeste" min="1" max="200" value="{{ $gaeste }}"
                    style="width:80px" onchange="this.form.submit()">
             @if ($raeume->isNotEmpty())
-                <label for="raum-wahl" style="margin:0 0 0 10px">Raum</label>
+                <label for="raum-wahl" style="margin:0 0 0 10px">{{ __($l.'label_room') }}</label>
                 <select id="raum-wahl" name="raum" style="width:auto" onchange="this.form.submit()">
-                    <option value="">Tisch (automatisch)</option>
+                    <option value="">{{ __($l.'option_table_automatic') }}</option>
                     @foreach ($raeume as $r)
                         <option value="{{ $r->id }}" @selected($raum && $raum->id === $r->id)>{{ $r->name }}</option>
                     @endforeach
@@ -303,40 +304,40 @@
                 <form method="post" action="/intern/freigeben" class="sperrform">
                     @csrf
                     <input type="hidden" name="datum" value="{{ $datum->toDateString() }}">
-                    <span class="marke gesperrt">Tag gesperrt{{ $grund ? " – ".$grund : "" }}</span>
-                    <button type="submit" class="knopf-klein">Sperre aufheben</button>
+                    <span class="marke gesperrt">{{ __($l.'day_blocked_label') }}{{ $grund ? " – ".$grund : "" }}</span>
+                    <button type="submit" class="knopf-klein">{{ __($l.'action_lift_block') }}</button>
                 </form>
             @else
                 <form method="post" action="/intern/sperren" class="sperrform">
                     @csrf
                     <input type="hidden" name="datum" value="{{ $datum->toDateString() }}">
-                    <input type="text" name="grund" placeholder="Grund (optional), z. B. Betriebsferien" style="max-width:280px">
-                    <button type="submit" class="knopf-klein">Diesen Tag sperren</button>
+                    <input type="text" name="grund" placeholder="{{ __($l.'placeholder_block_reason') }}" style="max-width:280px">
+                    <button type="submit" class="knopf-klein">{{ __($l.'action_block_day') }}</button>
                 </form>
             @endif
         </div>
 
         @if (!empty($sperren))
             <p class="hinweis" style="margin-top:10px">
-                Gesperrt:
+                {{ __($l.'blocked_list') }}
                 @foreach ($sperren as $tag => $grund)<a href="/intern?datum={{ $tag }}"
-                    >{{ \Carbon\Carbon::parse($tag)->locale('de')->isoFormat('dd D.M.') }}</a>@if ($grund) ({{ $grund }})@endif{{ !$loop->last ? ' · ' : '' }}@endforeach
+                    >{{ \Carbon\Carbon::parse($tag)->locale($loc)->isoFormat(__($l.'format_weekday_short_date')) }}</a>@if ($grund) ({{ $grund }})@endif{{ !$loop->last ? ' · ' : '' }}@endforeach
             </p>
         @endif
     </div>
 
     <div class="karte">
-        <h2>Belegung am {{ $datum->locale('de')->isoFormat('dddd, D. MMMM') }}</h2>
+        <h2>{{ __($l.'occupancy_on', ['date' => $datum->locale($loc)->isoFormat(__($l.'format_weekday_date'))]) }}</h2>
         <div class="zahlen">
-            <span><b>{{ $tischeGesamt }}</b> Tische</span>
-            <span><b>{{ $plaetzeGesamt }}</b> Plätze gesamt</span>
-            <span><b>{{ count($reservierungen) }}</b> Reservierungen an diesem Tag</span>
+            <span><b>{{ $tischeGesamt }}</b> {{ __($l.'stat_tables') }}</span>
+            <span><b>{{ $plaetzeGesamt }}</b> {{ __($l.'stat_seats_total') }}</span>
+            <span><b>{{ count($reservierungen) }}</b> {{ __($l.'stat_reservations_day') }}</span>
         </div>
 
         @if ($gesperrt)
-            <p class="leer">Dieser Tag ist gesperrt{{ $grund ? " – ".$grund : "" }}. Es werden keine Zeiten angeboten, auch nicht öffentlich.</p>
+            <p class="leer">{{ __($l.'day_blocked_message', ['reason' => $grund ? ' – '.$grund : '']) }}</p>
         @elseif (empty($belegung))
-            <p class="leer">An diesem Tag werden keine Zeiten angeboten – Ruhetag oder außerhalb des Buchungszeitraums.</p>
+            <p class="leer">{{ __($l.'day_closed_message') }}</p>
         @else
             <div class="schlitze">
                 @foreach ($belegung as $s)
@@ -345,57 +346,56 @@
                             {{ $s['passt'] ? '' : 'disabled' }}
                             @if ($s['pax_max'])
                                 title="{{ $s['passt']
-                                    ? 'Diese Zeit übernehmen – danach '.($s['pax_belegt'] + $gaeste).' von '.$s['pax_max'].' Plätzen'
-                                    : 'Nicht genug freie Plätze: '.$s['frei'].' frei, '.$gaeste.' gebraucht' }}"
+                                    ? __($l.'slot_title_fits_max', ['used' => $s['pax_belegt'] + $gaeste, 'max' => $s['pax_max']])
+                                    : __($l.'slot_title_not_enough', ['free' => $s['frei'], 'needed' => $gaeste]) }}"
                             @else
-                                title="{{ $s['passt'] ? 'Diese Zeit übernehmen' : 'Kein freier Tisch für diese Personenzahl' }}"
+                                title="{{ $s['passt'] ? __($l.'slot_title_take') : __($l.'slot_title_no_table') }}"
                             @endif
                             >
                         <span class="uhr">{{ $s['zeit'] }}</span>
                         <span class="lage">
                             @if ($s['pax_max'])
-                                {{ $s['pax_belegt'] }}/{{ $s['pax_max'] }} Pers.@if (!$s['passt']) · voll @endif
+                                {{ __($l.'slot_pax', ['used' => $s['pax_belegt'], 'max' => $s['pax_max']]) }}@if (!$s['passt']) · {{ __($l.'slot_full') }} @endif
                             @elseif (!$s['passt'])
-                                belegt
+                                {{ __($l.'slot_taken') }}
                             @elseif ($s['ohne_tisch'])
-                                ohne Tisch
+                                {{ __($l.'slot_no_table') }}
                             @elseif ($s['raum'])
-                                {{ $s['raum'] }} frei
+                                {{ __($l.'slot_room_free', ['room' => $s['raum']]) }}
                             @else
-                                {{ $s['frei'] }}/{{ $s['gesamt'] }} Tische · max. {{ $s['groesster'] }} Pl.
+                                {{ __($l.'slot_tables', ['free' => $s['frei'], 'total' => $s['gesamt'], 'largest' => $s['groesster']]) }}
                             @endif
                         </span>
                     </button>
                 @endforeach
             </div>
             <p class="hinweis">
-                Ein Klick auf die Uhrzeit nimmt die Reservierung mit den unten eingetragenen Daten an.
+                {{ __($l.'hint_click_time') }}
                 @if (!$raum && $vermerke->isNotEmpty())
                     @if ($ganztags->isNotEmpty())
-                        An diesem Tag wird ohne Tisch angenommen – die Verteilung macht der Tischplan.
+                        {{ __($l.'hint_no_table_day') }}
                         @if ($vermerkZeiten)
-                            Angeboten werden nur die im Sperrvermerk genannten Zeiten.
+                            {{ __($l.'hint_only_noted_times') }}
                         @endif
                     @else
-                        Zu den Zeiten des Sperrvermerks wird ohne Tisch angenommen, sonst wie gewohnt mit Tisch.
+                        {{ __($l.'hint_note_times_no_table') }}
                     @endif
                     {{-- Gilt in beiden Faellen: die Zahl steht unter jeder Uhrzeit,
                          die ein Vermerk deckelt. --}}
                     @if ($maxPax || $paxJeZeit)
-                        Die Zahl unter der Uhrzeit sind die bereits vergebenen von den für diesen Gang vorgesehenen Plätzen;
-                        grau bedeutet, dass {{ $gaeste }} {{ $gaeste === 1 ? 'Person' : 'Personen' }} dort nicht mehr hineinpassen.
+                        {{ __($l.'hint_pax_under_time', ['persons' => trans_choice($l.'count_persons', $gaeste)]) }}
                     @endif
                 @elseif ($raum)
-                    Grau bedeutet: {{ $raum->name }} ist zu dieser Zeit bereits vergeben.
+                    {{ __($l.'hint_grey_room', ['room' => $raum->name]) }}
                 @else
-                    Grau bedeutet: für {{ $gaeste }} {{ $gaeste === 1 ? 'Person' : 'Personen' }} ist kein Tisch mehr frei.
+                    {{ __($l.'hint_grey_table', ['persons' => trans_choice($l.'count_persons', $gaeste)]) }}
                 @endif
             </p>
         @endif
     </div>
 
     <div class="karte">
-        <h2>Gast</h2>
+        <h2>{{ __($l.'section_guest') }}</h2>
         <form method="post" id="annahme" action="/intern">
             @csrf
             <input type="hidden" name="datum" value="{{ $datum->toDateString() }}">
@@ -404,43 +404,43 @@
 
             <div class="felder">
                 <div>
-                    <label for="nachname">Nachname <span class="pflicht">*</span></label>
+                    <label for="nachname">{{ __($l.'attribute_last_name') }} <span class="pflicht">*</span></label>
                     <input type="text" id="nachname" name="nachname" value="{{ old('nachname') }}" autofocus required>
                 </div>
                 <div>
-                    <label for="telefon">Telefon <span class="pflicht">*</span></label>
+                    <label for="telefon">{{ __($l.'attribute_telephone') }} <span class="pflicht">*</span></label>
                     <input type="tel" id="telefon" name="telefon" value="{{ old('telefon') }}" required>
                 </div>
                 <div>
-                    <label for="email">E-Mail <span style="font-weight:400">(optional)</span></label>
+                    <label for="email">{{ __($l.'attribute_email') }} <span style="font-weight:400">{{ __($l.'label_optional') }}</span></label>
                     <input type="email" id="email" name="email" value="{{ old('email') }}">
                 </div>
             </div>
 
             <div style="margin-top:14px">
-                <label for="notiz">Notiz <span style="font-weight:400">(optional)</span></label>
+                <label for="notiz">{{ __($l.'attribute_note') }} <span style="font-weight:400">{{ __($l.'label_optional') }}</span></label>
                 <textarea id="notiz" name="notiz">{{ old('notiz') }}</textarea>
             </div>
 
-            <button type="submit" class="absenden" name="zeit" value="">Reservierung annehmen</button>
+            <button type="submit" class="absenden" name="zeit" value="">{{ __($l.'action_accept') }}</button>
             <p class="hinweis">
-                Wird sofort als <strong>bestätigt</strong> gespeichert.
+                {!! __($l.'hint_saved_confirmed') !!}
                 @if ($raum)
-                    Zugewiesen wird <strong>{{ $raum->name }}</strong>, nicht automatisch ein Tisch.
+                    {!! __($l.'hint_room_assigned', ['room' => e($raum->name)]) !!}
                 @else
-                    Der Tisch wird automatisch zugewiesen.
+                    {{ __($l.'hint_table_automatic') }}
                 @endif
-                Es wird <strong>keine E-Mail</strong> verschickt – weder an den Gast noch ans Haus.
-                Ohne Klick auf eine Uhrzeit oben fehlt die Zeit und das Formular meldet sich.
+                {!! __($l.'hint_no_mail') !!}
+                {{ __($l.'hint_time_missing') }}
             </p>
         </form>
     </div>
 
     @if ($raeume->isNotEmpty())
         <div class="karte">
-            <h2>Räume am {{ $datum->locale('de')->isoFormat('D. MMMM') }}</h2>
+            <h2>{{ __($l.'rooms_on', ['date' => $datum->locale($loc)->isoFormat(__($l.'format_day_month'))]) }}</h2>
             <table>
-                <thead><tr><th>Raum</th><th>Belegt</th></tr></thead>
+                <thead><tr><th>{{ __($l.'col_room') }}</th><th>{{ __($l.'col_occupied') }}</th></tr></thead>
                 <tbody>
                 @foreach ($raeume as $r)
                     @php($belegungen = $raumBelegung->filter(fn($x) => $x->tables->pluck('id')->contains($r->id)))
@@ -450,10 +450,10 @@
                             @forelse ($belegungen as $b)
                                 <div>
                                     {{ \Carbon\Carbon::parse($b->reserve_time)->format('H:i') }}–{{ $b->reservation_end_datetime->format('H:i') }}
-                                    · {{ trim($b->first_name.' '.$b->last_name) }} ({{ $b->guest_num }} Pers.)
+                                    · {{ trim($b->first_name.' '.$b->last_name) }} ({{ __($l.'persons_short', ['count' => $b->guest_num]) }})
                                 </div>
                             @empty
-                                <span class="leer">frei</span>
+                                <span class="leer">{{ __($l.'room_free') }}</span>
                             @endforelse
                         </td>
                     </tr>
@@ -461,15 +461,14 @@
                 </tbody>
             </table>
             <p class="hinweis">
-                Räume werden nie automatisch vergeben – weder über das öffentliche Formular noch hier.
-                Sie lassen sich nur über die Auswahl oben gezielt belegen.
+                {{ __($l.'rooms_hint') }}
             </p>
         </div>
     @endif
 
     <div class="karte">
         <div class="karte-kopf">
-            <h2>Reservierungen am {{ $datum->locale('de')->isoFormat('D. MMMM') }}</h2>
+            <h2>{{ __($l.'reservations_on', ['date' => $datum->locale($loc)->isoFormat(__($l.'format_day_month'))]) }}</h2>
             {{-- Tagesblatt zum Abheften. Die Trennzeit steht hier und nicht nur
                  in der .env: an Weihnachten gibt es nur zwei Sitzungen, deren
                  Grenze liegt woanders - das muss man im Moment des Druckens
@@ -477,34 +476,34 @@
             <form class="drucken" method="get" action="/intern/druck" target="_blank">
                 <input type="hidden" name="datum" value="{{ $datum->toDateString() }}">
                 <span class="zeile">
-                    <label for="trennzeit">Zweites Blatt ab</label>
+                    <label for="trennzeit">{{ __($l.'print_second_sheet_from') }}</label>
                     <input type="text" id="trennzeit" name="trennzeit" value="{{ $trennzeit }}"
                            size="5" inputmode="numeric" placeholder="15:00"
-                           title="Uhrzeit, ab der das zweite Blatt beginnt. 'aus' druckt den Tag am Stück.">
-                    <button type="submit" name="modus" value="tag">Tag drucken</button>
+                           title="{{ __($l.'print_split_title') }}">
+                    <button type="submit" name="modus" value="tag">{{ __($l.'print_day') }}</button>
                 </span>
                 <span class="zeile">
-                    <label for="von">Zeitraum</label>
+                    <label for="von">{{ __($l.'print_period') }}</label>
                     <input type="date" id="von" name="von" value="{{ $datum->toDateString() }}">
                     <span>–</span>
                     <input type="date" id="bis" name="bis" value="{{ $datum->copy()->addDays(6)->toDateString() }}">
                     <button type="submit" name="modus" value="zeitraum"
-                            title="Druckt jeden Tag des Zeitraums. Tage ohne Reservierung werden übersprungen.">Zeitraum drucken</button>
+                            title="{{ __($l.'print_period_title') }}">{{ __($l.'print_period_action') }}</button>
                 </span>
             </form>
         </div>
         @if ($reservierungen->isEmpty())
-            <p class="leer">Noch keine Reservierungen an diesem Tag.</p>
+            <p class="leer">{{ __($l.'reservations_none_yet') }}</p>
         @else
             <table>
                 <thead>
-                <tr><th>Zeit</th><th>Name</th><th>Pers.</th><th>Tisch</th><th>Telefon</th><th>Notiz</th></tr>
+                <tr><th>{{ __($l.'col_time') }}</th><th>{{ __($l.'col_name') }}</th><th>{{ __($l.'col_persons') }}</th><th>{{ __($l.'col_table') }}</th><th>{{ __($l.'col_telephone') }}</th><th>{{ __($l.'col_note') }}</th></tr>
                 </thead>
                 <tbody>
                 @foreach ($reservierungen as $r)
                     <tr class="{{ $neu && $neu->getKey() === $r->getKey() ? 'soeben' : '' }}">
                         <td class="uhr">{{ \Carbon\Carbon::parse($r->reserve_time)->format('H:i') }}</td>
-                        <td>{{ trim($r->first_name.' '.$r->last_name) }}@if ($neu && $neu->getKey() === $r->getKey()) <span class="frisch">soeben angenommen</span>@endif</td>
+                        <td>{{ trim($r->first_name.' '.$r->last_name) }}@if ($neu && $neu->getKey() === $r->getKey()) <span class="frisch">{{ __($l.'just_accepted') }}</span>@endif</td>
                         <td>{{ $r->guest_num }}</td>
                         <td>{{ $r->tables->pluck('name')->implode(', ') ?: '—' }}</td>
                         <td>{{ $r->telephone ?: '—' }}</td>

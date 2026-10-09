@@ -56,6 +56,7 @@ class Extension extends BaseExtension
     public function boot(): void
     {
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'reservationcontrol');
+        $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'reservationcontrol');
         $this->registerInternalRoutes();
         $this->registerInternalApiRoutes();
 

@@ -207,14 +207,15 @@ class DayData
     /**
      * Split time as HH:MM, or null for a single sheet.
      *
-     * The env variable and the literal "aus" ("off") stay German: they are
-     * configuration of a running installation.
+     * The env variable and the literal "aus" stay as they are because they are
+     * configuration of a running installation; "off" is accepted as well, so
+     * that the English hint on the print form tells the truth.
      */
     public static function splitTime(?string $raw): ?string
     {
         $raw = trim((string) ($raw ?? env('INTERN_DRUCK_TRENNZEIT', self::SPLIT_TIME)));
 
-        if ($raw === '' || strtolower($raw) === 'aus') {
+        if ($raw === '' || in_array(strtolower($raw), ['aus', 'off'], true)) {
             return null;
         }
 
@@ -233,7 +234,7 @@ class DayData
     public static function location(): Location
     {
         $location = Location::query()->whereIsEnabled()->first();
-        abort_if(! $location, 500, 'Kein aktiver Standort vorhanden.');
+        abort_if(! $location, 500, __('reservationcontrol::default.error_no_active_location'));
 
         return $location;
     }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wagnersnetz\ReservationControl\Entry;
 
+use Carbon\Carbon;
 use Igniter\Admin\Models\Status;
 
 /**
@@ -137,16 +138,13 @@ class Prompt
     /**
      * "Sa, 19.09.2026" - in day-to-day business people look for the weekday.
      *
-     * Weekday abbreviations and the day.month.year order stay German: this is
-     * read by the staff of a German restaurant, the same way the internal web
-     * pages render their dates.
+     * Weekday names and the order of the parts follow the current locale.
      */
     public static function longDate(string $date): string
     {
-        $days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-        $time = strtotime($date);
-
-        return $days[(int) date('N', $time) - 1].', '.date('d.m.Y', $time);
+        return Carbon::parse($date)
+            ->locale(app()->getLocale())
+            ->isoFormat(__('reservationcontrol::default.format_console_date'));
     }
 
     /** Reservation status: name, short form or id. */

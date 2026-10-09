@@ -129,10 +129,10 @@ class TableChoice
     }
 
     /** "Tisch 1 + Tisch 2", or the note that none is set. */
-    public static function names(array $ids, Collection $tables, string $empty = 'no table'): string
+    public static function names(array $ids, Collection $tables, ?string $empty = null): string
     {
         if ($ids === []) {
-            return $empty;
+            return $empty ?? __('reservationcontrol::default.console_no_table');
         }
 
         return implode(' + ', array_map(

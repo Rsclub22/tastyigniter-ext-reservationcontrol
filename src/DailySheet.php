@@ -74,14 +74,14 @@ class DailySheet
         $timeOf = static fn (Reservation $r): string => Carbon::parse($r->reserve_time)->format('H:i');
 
         if ($splitTime === null) {
-            return $all->isEmpty() ? [] : [['titel' => 'Ganzer Tag', 'reservierungen' => $all]];
+            return $all->isEmpty() ? [] : [['titel' => __('reservationcontrol::default.label_full_day'), 'reservierungen' => $all]];
         }
 
         $sections = [
-            ['titel' => 'Bis '.$splitTime.' Uhr', 'reservierungen' => $all->filter(
+            ['titel' => __('reservationcontrol::default.label_until_time', ['time' => $splitTime]), 'reservierungen' => $all->filter(
                 static fn (Reservation $r): bool => $timeOf($r) < $splitTime,
             )->values()],
-            ['titel' => 'Ab '.$splitTime.' Uhr', 'reservierungen' => $all->filter(
+            ['titel' => __('reservationcontrol::default.label_from_time', ['time' => $splitTime]), 'reservierungen' => $all->filter(
                 static fn (Reservation $r): bool => $timeOf($r) >= $splitTime,
             )->values()],
         ];

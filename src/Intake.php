@@ -52,10 +52,13 @@ class Intake
             return null;
         }
 
-        return sprintf(
-            'Um %s Uhr sind bereits %d von %d Plätzen vergeben – %d weitere passen nicht mehr. Frei sind noch %d.',
-            $time, $already, $maxPax, $guests, max(0, $maxPax - $already),
-        );
+        return __('reservationcontrol::default.error_max_pax', [
+            'time' => $time,
+            'already' => $already,
+            'max' => $maxPax,
+            'guests' => $guests,
+            'free' => max(0, $maxPax - $already),
+        ]);
     }
 
     /**
@@ -117,6 +120,7 @@ class Intake
         $reservation->save();
 
         // notify=false: no status mail to the guest.
+        // Stays German on purpose: the status history already holds years of German rows.
         $reservation->addStatusHistory(
             (int) setting('confirmed_reservation_status'),
             ['notify' => false, 'comment' => 'Telefonisch angenommen'],

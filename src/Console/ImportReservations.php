@@ -65,7 +65,7 @@ class ImportReservations extends Command
         $file = (string) $this->argument('file');
 
         if ($file === '' || ! is_readable($file)) {
-            $this->error('File missing or not readable. Example: --template');
+            $this->error($this->t('console_import_file_missing'));
 
             return self::INVALID;
         }
@@ -122,7 +122,7 @@ class ImportReservations extends Command
         fclose($handle);
 
         if ($raw === []) {
-            $this->error('The file contains no rows.');
+            $this->error($this->t('console_import_no_rows'));
 
             return [];
         }
@@ -142,14 +142,17 @@ class ImportReservations extends Command
 
         foreach (['date', 'time', 'guests'] as $required) {
             if (! isset($mapping[$required])) {
-                $this->error(sprintf('Required column "%s" is missing. Found: %s', $required, implode(', ', $header)));
+                $this->error($this->t('console_import_column_missing', [
+                    'column' => $required,
+                    'found' => implode(', ', $header),
+                ]));
 
                 return [];
             }
         }
 
         if (! isset($mapping['name']) && ! isset($mapping['lastName'])) {
-            $this->error('A column "Name" or "Nachname" is needed.');
+            $this->error($this->t('console_import_need_name'));
 
             return [];
         }
@@ -181,32 +184,35 @@ class ImportReservations extends Command
         $notes = [];
 
         if (! $date = Prompt::date($v['date'] ?? '')) {
-            $errors[] = sprintf('Date unreadable: "%s"', $v['date'] ?? '');
+            $errors[] = $this->t('console_import_date_unreadable', ['value' => $v['date'] ?? '']);
         }
 
         if (! $time = Prompt::time($v['time'] ?? '')) {
-            $errors[] = sprintf('Time unreadable: "%s"', $v['time'] ?? '');
+            $errors[] = $this->t('console_import_time_unreadable', ['value' => $v['time'] ?? '']);
         }
 
         $guests = Prompt::number($v['guests'] ?? '');
         if ($guests === null || $guests < 1) {
-            $errors[] = sprintf('Number of persons unreadable: "%s"', $v['guests'] ?? '');
+            $errors[] = $this->t('console_import_guests_unreadable', ['value' => $v['guests'] ?? '']);
         }
 
         [$firstName, $lastName] = Prompt::name($v['name'] ?? '', $v['firstName'] ?? '', $v['lastName'] ?? '');
         if ($firstName === '' && $lastName === '') {
-            $errors[] = 'No name given';
+            $errors[] = $this->t('console_import_no_name');
         }
 
         $email = $v['email'] ?? '';
         if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $notes[] = sprintf('E-mail looks invalid: "%s" – taken over all the same', $email);
+            $notes[] = $this->t('console_import_email_invalid', ['email' => $email]);
         }
 
         $statusRaw = ($v['status'] ?? '') !== '' ? $v['status'] : (string) $this->option('status');
         $status = Prompt::status($statusRaw);
         if ($status === null) {
-            $errors[] = sprintf('Status unknown: "%s" (possible: %s)', $statusRaw, implode(', ', array_keys(Prompt::statusList())));
+            $errors[] = $this->t('console_import_status_unknown', [
+                'status' => $statusRaw,
+                'possible' => implode(', ', array_keys(Prompt::statusList())),
+            ]);
         }
 
         $tableIds = [];
@@ -219,7 +225,7 @@ class ImportReservations extends Command
             [$tableIds, $unknown] = TableChoice::fromText($tableRaw, $tables);
 
             foreach ($unknown as $u) {
-                $errors[] = sprintf('Table "%s" not found', $u);
+                $errors[] = $this->t('console_import_table_not_found', ['table' => $u]);
             }
         }
 
@@ -227,13 +233,13 @@ class ImportReservations extends Command
             $capacity = TableChoice::capacity($tableIds, $tables);
 
             if ($capacity > 0 && $guests > $capacity) {
-                $notes[] = sprintf('More guests (%d) than seats (%d) – created all the same', $guests, $capacity);
+                $notes[] = $this->t('console_import_too_many_guests', ['guests' => $guests, 'seats' => $capacity]);
             }
         }
 
         foreach ($tableIds as $id) {
             if (! $tables->get($id)?->is_enabled) {
-                $notes[] = sprintf('Table "%s" is disabled – the assignment is set all the same', $tables->get($id)->name ?? $id);
+                $notes[] = $this->t('console_import_table_disabled', ['table' => $tables->get($id)->name ?? $id]);
             }
         }
 
@@ -244,7 +250,9 @@ class ImportReservations extends Command
         $comment = $v['comment'] ?? '';
 
         if ($occasionRaw !== '' && $occasion === null) {
-            $notes[] = sprintf('Occasion "%s" unknown – now stands in the comment', $occasionRaw);
+            $notes[] = $this->t('console_import_occasion_unknown', ['occasion' => $occasionRaw]);
+            // "Anlass" stays German: the text is stored in the comment column
+            // next to the German comments of the lists that get imported.
             $comment = trim($comment === '' ? 'Anlass: '.$occasionRaw : $comment.' | Anlass: '.$occasionRaw);
         }
 
@@ -275,9 +283,9 @@ class ImportReservations extends Command
         $dryRun = (bool) $this->option('dry-run');
 
         $this->newLine();
-        $this->line($dryRun
-            ? sprintf('  <options=bold>Dry run</> – %d row(s), nothing is written', count($prepared))
-            : sprintf('  <options=bold>Import</> – %d row(s)', count($prepared)));
+        $this->line('  '.$this->t($dryRun ? 'console_import_dry_run' : 'console_import_run', [
+            'count' => count($prepared),
+        ]));
         $this->newLine();
 
         $created = 0;
@@ -287,12 +295,14 @@ class ImportReservations extends Command
 
         foreach ($prepared as $r) {
             $label = sprintf(
-                'Row %-3d %s %s  %-22s %2s p.  %s',
+                '%s %-3d %s %s  %-22s %2s %s  %s',
+                $this->t('console_import_row'),
                 $r['row'],
                 $r['reserve_date'] ?? '????-??-??',
                 $r['reserve_time'] ?? '??:??',
                 mb_strimwidth(trim($r['first_name'].' '.$r['last_name']), 0, 22, ''),
                 $r['guest_num'] ?? '?',
+                $this->t('console_import_persons_abbr'),
                 TableChoice::names($r['table_ids'], $tables),
             );
 
@@ -310,7 +320,7 @@ class ImportReservations extends Command
 
             if (! $this->option('duplicates') && $this->alreadyExists($r)) {
                 $this->warn('  '.$label);
-                $this->line('      <fg=yellow>→ already exists (date, time, surname) – skipped. Use --duplicates to create it anyway.</>');
+                $this->line('      <fg=yellow>→ '.$this->t('console_import_duplicate').'</>');
                 $skipped++;
 
                 continue;
@@ -328,6 +338,7 @@ class ImportReservations extends Command
             }
 
             try {
+                // Stays German on purpose: the status history already holds years of German rows.
                 $reservation = CreateReservation::create($r, 'Aus Liste nachträglich importiert');
                 $log[] = (string) $reservation->reservation_id;
                 $created++;
@@ -340,13 +351,11 @@ class ImportReservations extends Command
         }
 
         $this->newLine();
-        $this->line(sprintf(
-            '  %s: %d   skipped: %d   failed: %d',
-            $dryRun ? 'Would create' : 'Created',
-            $created,
-            $skipped,
-            $failed,
-        ));
+        $this->line('  '.$this->t($dryRun ? 'console_import_summary_dry' : 'console_import_summary', [
+            'created' => $created,
+            'skipped' => $skipped,
+            'failed' => $failed,
+        ]));
 
         if (! $dryRun && $log !== []) {
             $directory = storage_path('import');
@@ -355,8 +364,8 @@ class ImportReservations extends Command
             file_put_contents($file, implode("\n", $log)."\n");
 
             $this->newLine();
-            $this->line('  Log: '.$file);
-            $this->line('  Undo: php artisan reservation:import --undo='.$file);
+            $this->line('  '.$this->t('console_import_log', ['file' => $file]));
+            $this->line('  '.$this->t('console_import_undo_hint', ['file' => $file]));
         }
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;
@@ -375,7 +384,7 @@ class ImportReservations extends Command
     private function undo(string $log): int
     {
         if (! is_readable($log)) {
-            $this->error('Log file not readable: '.$log);
+            $this->error($this->t('console_undo_log_unreadable', ['file' => $log]));
 
             return self::INVALID;
         }
@@ -383,28 +392,37 @@ class ImportReservations extends Command
         $ids = array_filter(array_map('trim', (array) file($log)), 'ctype_digit');
 
         if ($ids === []) {
-            $this->warn('No numbers in '.$log);
+            $this->warn($this->t('console_undo_log_empty', ['file' => $log]));
 
             return self::SUCCESS;
         }
 
-        $this->line(sprintf('  %d reservation(s) from the log: %s', count($ids), implode(', ', $ids)));
+        $this->line('  '.$this->t('console_undo_count', [
+            'count' => count($ids),
+            'ids' => implode(', ', $ids),
+        ]));
 
         if ($this->option('dry-run')) {
-            $this->warn('  Dry run – nothing is deleted.');
+            $this->warn('  '.$this->t('console_undo_dry_run'));
 
             return self::SUCCESS;
         }
 
         foreach ($ids as $id) {
             if (CreateReservation::undo((int) $id)) {
-                $this->line(sprintf('  <fg=green>#%d deleted</>', $id));
+                $this->line('  <fg=green>'.$this->t('console_undo_deleted', ['id' => $id]).'</>');
             } else {
-                $this->warn(sprintf('  #%d does not exist or is not from this import – skipped', $id));
+                $this->warn('  '.$this->t('console_undo_skipped', ['id' => $id]));
             }
         }
 
         return self::SUCCESS;
+    }
+
+    /** Translate a key of this extension's language file. */
+    private function t(string $key, array $replace = []): string
+    {
+        return __('reservationcontrol::default.'.$key, $replace);
     }
 
     /**
