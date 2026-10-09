@@ -189,6 +189,7 @@ class InternalBookingController extends Controller
         $data = $request->validate([
             'datum' => ['required', 'date'],
             'grund' => ['nullable', 'string', 'max:120'],
+            'online' => ['nullable', 'boolean'],
         ], [], [
             'datum' => __('reservationcontrol::default.attribute_date'),
             'grund' => __('reservationcontrol::default.attribute_reason'),
@@ -210,7 +211,7 @@ class InternalBookingController extends Controller
             ]);
         }
 
-        BlockedDates::block($date, trim((string) ($data['grund'] ?? '')));
+        BlockedDates::block($date, trim((string) ($data['grund'] ?? '')), $request->boolean('online'));
 
         return $this->backTo($request, $date)->with('hinweis', __('reservationcontrol::default.notice_day_blocked', [
             'date' => $this->formatDate($date, 'format_weekday_date'),

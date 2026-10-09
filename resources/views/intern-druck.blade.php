@@ -196,7 +196,7 @@
 
             @if ($tag['gesperrt'])
                 <div class="sperrhinweis">
-                    {{ __($l.'print_day_blocked') }}
+                    {{ __($l.($tag['online'] ? 'print_day_online' : 'print_day_blocked')) }}
                     @if ($tag['grund']) {{ __($l.'print_reason', ['reason' => $tag['grund']]) }} @endif
                 </div>
             @endif

@@ -304,7 +304,7 @@
                 <form method="post" action="/intern/freigeben" class="sperrform">
                     @csrf
                     <input type="hidden" name="datum" value="{{ $datum->toDateString() }}">
-                    <span class="marke gesperrt">{{ __($l.'day_blocked_label') }}{{ $grund ? " – ".$grund : "" }}</span>
+                    <span class="marke {{ $online ? '' : 'gesperrt' }}">{{ __($l.($online ? 'day_online_label' : 'day_blocked_label')) }}{{ $grund ? " – ".$grund : "" }}</span>
                     <button type="submit" class="knopf-klein">{{ __($l.'action_lift_block') }}</button>
                 </form>
             @else
@@ -312,6 +312,7 @@
                     @csrf
                     <input type="hidden" name="datum" value="{{ $datum->toDateString() }}">
                     <input type="text" name="grund" placeholder="{{ __($l.'placeholder_block_reason') }}" style="max-width:280px">
+                    <label title="{{ __($l.'help_block_allow_online') }}"><input type="checkbox" name="online" value="1"> {{ __($l.'label_block_allow_online') }}</label>
                     <button type="submit" class="knopf-klein">{{ __($l.'action_block_day') }}</button>
                 </form>
             @endif
@@ -334,7 +335,7 @@
             <span><b>{{ count($reservierungen) }}</b> {{ __($l.'stat_reservations_day') }}</span>
         </div>
 
-        @if ($gesperrt)
+        @if ($gesperrt && ! $online)
             <p class="leer">{{ __($l.'day_blocked_message', ['reason' => $grund ? ' – '.$grund : '']) }}</p>
         @elseif (empty($belegung))
             <p class="leer">{{ __($l.'day_closed_message') }}</p>

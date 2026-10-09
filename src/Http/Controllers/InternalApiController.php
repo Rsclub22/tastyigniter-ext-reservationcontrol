@@ -76,6 +76,7 @@ class InternalApiController extends ApiController
 
             // Blocked day: to a guest that reads as "closed".
             'gesperrt' => (bool) $data['gesperrt'],
+            'online' => (bool) $data['online'],
             'grund' => (string) $data['grund'],
             'sperren' => $data['sperren'],
 
@@ -213,6 +214,7 @@ class InternalApiController extends ApiController
             $days[] = [
                 'datum' => $day->toDateString(),
                 'gesperrt' => (bool) $sheet['gesperrt'],
+                'online' => (bool) $sheet['online'],
                 'grund' => (string) $sheet['grund'],
                 'max_pax' => $sheet['maxPax'],
                 'pax_je_zeit' => $sheet['paxJeZeit'],
@@ -275,7 +277,7 @@ class InternalApiController extends ApiController
             ->get()
             ->groupBy(fn (Reservation $r): string => Carbon::parse($r->reserve_date)->toDateString());
 
-        $blocked = BlockedDates::all();
+        $blocked = BlockedDates::entries();
         $days = [];
         $peak = 0;
 
@@ -294,7 +296,8 @@ class InternalApiController extends ApiController
                 'reservierungen' => $guests->count(),
                 'gaeste' => $sum,
                 'gesperrt' => array_key_exists($key, $blocked),
-                'grund' => (string) ($blocked[$key] ?? ''),
+                'grund' => (string) ($blocked[$key]['grund'] ?? ''),
+                'online' => ($blocked[$key]['online'] ?? false) === true,
                 'vermerk' => $notes->isNotEmpty(),
                 'vermerk_text' => (string) ($notes->first()?->comment ?? ''),
                 'max_pax' => ClosureNotes::maxPax($notes),
@@ -372,16 +375,17 @@ class InternalApiController extends ApiController
         ]);
     }
 
-    /** Block a day against online booking. */
+    /** Mark a day; unless "online" is true it is blocked against online booking. */
     public function block(Request $request): JsonResponse
     {
         $data = $request->validate([
             'datum' => ['required', 'date'],
             'grund' => ['nullable', 'string', 'max:190'],
+            'online' => ['nullable', 'boolean'],
         ]);
 
         $date = Carbon::parse($data['datum'])->toDateString();
-        BlockedDates::block($date, (string) ($data['grund'] ?? ''));
+        BlockedDates::block($date, (string) ($data['grund'] ?? ''), $request->boolean('online'));
 
         return response()->json(['gesperrt' => $date, 'alle' => BlockedDates::all()]);
     }

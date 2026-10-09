@@ -70,6 +70,7 @@ class DailySheet
             'paxJeZeit' => ClosureNotes::maxPaxPerTime($all->filter($isNote)),
             'gesperrt' => BlockedDates::isBlocked($date->toDateString()),
             'grund' => BlockedDates::all()[$date->toDateString()] ?? '',
+            'online' => BlockedDates::isOnlineBookable($date->toDateString()),
         ];
     }
 

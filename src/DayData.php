@@ -185,6 +185,7 @@ class DayData
             'gaeste' => $guests,
             'gesperrt' => BlockedDates::isBlocked($date->toDateString()),
             'grund' => BlockedDates::all()[$date->toDateString()] ?? '',
+            'online' => BlockedDates::isOnlineBookable($date->toDateString()),
             'sperren' => BlockedDates::upcoming(),
             'raeume' => Rooms::all(),
             'raum' => $room,
