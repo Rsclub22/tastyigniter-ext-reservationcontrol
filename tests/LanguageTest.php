@@ -25,7 +25,8 @@ it('carries the same keys in english and german', function (): void {
     $en = array_keys(Arr::dot(require __DIR__.'/../resources/lang/en/default.php'));
     $de = array_keys(Arr::dot(require __DIR__.'/../resources/lang/de/default.php'));
 
-    expect($de)->toEqualCanonicalizing($en);
+    expect(array_values(array_diff($en, $de)))->toBe([], 'missing in de: '.implode(', ', array_diff($en, $de)));
+    expect(array_values(array_diff($de, $en)))->toBe([], 'missing in en: '.implode(', ', array_diff($de, $en)));
 });
 
 it('keeps placeholders, plural syntax and embedded markup identical in both languages', function (): void {
@@ -61,12 +62,13 @@ it('keeps placeholders, plural syntax and embedded markup identical in both lang
     }
 });
 
-it('does not leave placeholders or markup in strings that must be plain', function (): void {
+it('allows embedded HTML only in hint_* strings (and console tags in console_*)', function (): void {
     $en = Arr::dot(require __DIR__.'/../resources/lang/en/default.php');
 
     foreach ($en as $key => $text) {
-        if (! str_starts_with($key, 'hint_')) {
-            expect($text)->not->toContain('<strong>', "$key carries markup but is not a hint_* string");
+        // console_* strings carry Symfony console tags such as <options=bold>.
+        if (! str_starts_with($key, 'hint_') && ! str_starts_with($key, 'console_')) {
+            expect(preg_match('/<\/?[a-z][^>]*>/i', $text))->toBe(0, "$key carries markup but is not a hint_* string");
         }
     }
 });
