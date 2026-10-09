@@ -17,7 +17,7 @@ use Throwable;
  * It asks the very same method the form asks
  * (LargePartyBookingManager::isTimeslotsFullyBookedOn), with the same date,
  * guest count and location, and tests the result the way the Orange theme does
- * ('Y-m-d H:i'). There is no second rule here, so display and submission cannot
+ * ('Y-m-d H:i'). It does not depend on booking.auto_allocate_table. There is no second rule here, so display and submission cannot
  * disagree.
  *
  * Fail open: whatever is uncertain - no component, no location, odd values, any
@@ -68,11 +68,8 @@ class BlockedSlotGuard
             return false;
         }
 
-        // The form asks only with automatic table allocation on; same here.
-        if (! (bool) $location->getSettings('booking.auto_allocate_table', 1)) {
-            return false;
-        }
-
+        // Always enforced - not tied to TastyIgniter's automatic table assignment,
+        // which only decides whether the theme asks the manager at all.
         $manager->useLocation($location);
 
         $booked = $manager->isTimeslotsFullyBookedOn(collect([$at]), $day, $guest);

@@ -40,11 +40,13 @@
 
 ### Changed
 
-- The online time list now ends at the cut-off (`cutoff_minutes_before_closing`) instead of
-  showing greyed-out slots behind it: with 60 minutes and a 15:00 close the last offered time
-  is 14:00, with 75 minutes 13:45. Phone intake and large parties keep every slot. Only the
-  cut-off is trimmed; slots blocked by the guest cap, a closure note or table availability
-  stay visible and disabled, because they can free up.
+- Blocked times are no longer offered on the public booking form at all: the online time
+  list leaves out slots closed by the cut-off (`cutoff_minutes_before_closing`), by the online
+  guest cap, inside a closure note's time window, and the whole day for an all-day note. The
+  guest sees exactly what can be booked. This does **not** depend on TastyIgniter's "automatic
+  table assignment" setting (the extension's advice is to keep that off). Phone intake keeps
+  every slot. Table availability is not trimmed. The guest cap uses the party size the booking
+  form currently has (1 when unknown).
 - The online cut-off is now in minutes: `cutoff_hours_before_closing` is renamed to
   `cutoff_minutes_before_closing` (0 to 1440; larger values count as unset). The old key is
   deliberately **not** read and nothing is converted - a stored `1` would silently turn one hour
@@ -71,7 +73,7 @@
   days that were closed on paper but bookable online become closed online.
 - A submitted online reservation whose date and time fall in a blocked slot is now refused
   with a clear message, instead of relying on the disabled button alone. Uses the same
-  method as the form, so the two cannot disagree. If the check cannot be made (no location,
+  method as the form, so the two cannot disagree. Enforced regardless of the automatic table assignment setting. If the check cannot be made (no location,
   unexpected value, exception) the booking goes through and a warning is logged.
 - Allow-list entries with mask `/0` (`0.0.0.0/0`, `::/0`) are rejected; they matched every
   address and would have opened the intake pages to the internet.

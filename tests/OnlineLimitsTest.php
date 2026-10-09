@@ -294,11 +294,11 @@ it('returns a free slot in neither notation', function (): void {
 });
 
 /** Runs the public booking form's validator with a running component asking for $time. */
-function bookingErrors(string $time, ?LargePartyBookingManager $manager = null, bool $withLocation = true, int $guests = 2): MessageBag
+function bookingErrors(string $time, ?LargePartyBookingManager $manager = null, bool $withLocation = true, int $guests = 2, int $autoAllocate = 1): MessageBag
 {
     $manager ??= limitManager($guests);
     $location = (new ReflectionProperty($manager, 'location'))->getValue($manager);
-    $location->shouldReceive('getSettings')->andReturn(1);
+    $location->shouldReceive('getSettings')->andReturn($autoAllocate);
     app()->instance(BookingManager::class, $manager);
     LocationFacade::shouldReceive('current')->andReturn($withLocation ? $location : null);
 
@@ -380,6 +380,8 @@ it('lets the booking through when the form has no running component', function (
 /** A manager whose location opens Mondays 11:00 to $close, 15-minute slots. */
 function trimManager(int $guests, string $close = '15:00', bool $internal = false): LargePartyBookingManager
 {
+    // The fixture day lies years ahead; the phone horizon defaults to one year.
+    limitSetting('internal_booking_horizon_days', 3000);
     (new ReflectionProperty(ClosureNotes::class, 'openingHours'))->setValue(null, [1 => ['11:00', $close]]);
 
     $location = Mockery::mock(Location::class)->makePartial();
@@ -435,23 +437,43 @@ it('keeps every slot on the internal path and for large parties', function (): v
         ->and(offeredTimes(trimManager(25)))->toContain('14:45');
 });
 
-it('trims only the cut-off: cap and note slots stay in the list, reported as fully booked', function (): void {
-    noteWithCapAndEightGuests();
-    limitSetting('apply_max_guests_online', true);
-    limitSetting('cutoff_minutes_before_closing', 60);
-
-    $manager = trimManager(3, '22:00');
-    $times = offeredTimes($manager);
-
-    expect($times)->toContain('19:00')->and(end($times))->toBe('21:00')
-        ->and(fullyBooked($manager, 3, ['19:00']))->toBe(['19:00']);
+it('keeps the list unchanged when nothing blocks', function (): void {
+    expect(offeredTimes(trimManager(2, '22:00')))->toBe(offeredTimes(trimManager(2, '22:00', internal: true)));
 });
 
-it('keeps the slots of a plain closure note in the list, reported as fully booked', function (): void {
-    noteWithCapAndEightGuests('Märchenabend', noteTime: '18:00:00');
+it('does not offer a cap slot online, but keeps it for the phone', function (): void {
+    noteWithCapAndEightGuests();
+    limitSetting('apply_max_guests_online', true);
 
-    $manager = trimManager(2, '22:00');
+    expect(offeredTimes(trimManager(3, '22:00')))->not->toContain('19:00')->toContain('18:45')
+        ->and(offeredTimes(trimManager(3, '22:00', internal: true)))->toContain('19:00');
+});
 
-    expect(offeredTimes($manager))->toContain('12:00')
-        ->and(fullyBooked($manager, 2, ['12:00']))->toBe(['12:00']);
+it('does not offer a closure note window online, but keeps it for the phone', function (): void {
+    // 09:00-11:00 lies beside the opening hours (so no all-day note); the large-party window starts at 10:00.
+    noteWithCapAndEightGuests('Märchenabend', noteTime: '09:00:00');
+
+    expect(offeredTimes(trimManager(25, '22:00')))->not->toContain('10:00')->toContain('11:00')
+        ->and(offeredTimes(trimManager(25, '22:00', internal: true)))->toContain('10:00');
+});
+
+it('offers nothing online on an all-day note, but everything to the phone', function (): void {
+    noteWithCapAndEightGuests('Ganztägig geschlossen');
+
+    expect(offeredTimes(trimManager(2, '22:00')))->toBe([])
+        ->and(offeredTimes(trimManager(2, '22:00', internal: true)))->toContain('12:00', '19:00');
+});
+
+it('drops the cut-off slots online and keeps them for the phone', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 60);
+
+    expect(offeredTimes(trimManager(2)))->not->toContain('14:15')
+        ->and(offeredTimes(trimManager(2, internal: true)))->toContain('14:15');
+});
+
+it('still enforces the guard with automatic table assignment off', function (): void {
+    limitSetting('cutoff_minutes_before_closing', 120);
+
+    expect(bookingErrors('21:30', autoAllocate: 0)->has('time'))->toBeTrue()
+        ->and(bookingErrors('19:00', autoAllocate: 0)->isEmpty())->toBeTrue();
 });

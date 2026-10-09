@@ -158,29 +158,38 @@ class LargePartyBookingManager extends BookingManager
     }
 
     /**
-     * Online, the list of times ends at the cut-off instead of showing greyed-out
-     * buttons behind it. ONLY the cut-off is trimmed, deliberately: it is
-     * structural - that time is never bookable that day, for anyone, whatever
-     * changes, so showing it gains nothing. The guest cap, a closure note's window
-     * and table availability are situational (they depend on what is booked and can
-     * free up while the guest looks at the page); those stay in the list and are
-     * reported as fully booked, so the guest sees the time exists. Phone intake
-     * (internal) and large parties keep every slot: staff take late bookings.
+     * Online, blocked times are not offered at all: the guest sees exactly what
+     * can be booked. Removed are the slots of the cut-off, of the online guest
+     * cap, of a closure note's time window and of an all-day note - the same
+     * decisions isTimeslotsFullyBookedOn() reports (noteBlocked() and
+     * onlineLimited() are the one implementation of each), and independent of
+     * TastyIgniter's "automatic table assignment" setting, which decides
+     * whether the theme asks for the fully-booked list at all.
+     *
+     * Table availability is not trimmed here (it stays the theme's business).
+     * Phone intake (internal) keeps every slot: staff take late bookings.
+     *
+     * The guest cap depends on the party size; makeTimeSlots() does not receive
+     * it, so the component's count is used (1 when unknown).
      */
     public function makeTimeSlots(Carbon $date, $interval = null, $lead = null)
     {
         $slots = parent::makeTimeSlots($date, $interval, $lead);
 
-        if ($this->internal || $this->isLargeParty() || ! $slots instanceof Collection) {
+        if ($this->internal || ! $slots instanceof Collection || $slots->isEmpty()) {
             return $slots;
         }
 
-        $cutoffFrom = self::cutoffFrom($date);
+        $blocked = $this->noteBlocked($slots, $date);
+        if (! $this->isLargeParty()) {
+            $guests = max(1, $this->forcedGuestCount ?? BookingContext::guestCount() ?? 1);
+            $blocked = array_merge($blocked, $this->onlineLimited($slots, $date, $guests));
+        }
 
-        return $cutoffFrom === null
+        return $blocked === []
             ? $slots
-            : $slots->reject(fn ($slot): bool => self::isPastCutoff(
-                $date->copy()->setTimeFromTimeString($slot->format('H:i')), $cutoffFrom,
+            : $slots->reject(fn ($slot): bool => in_array(
+                $date->copy()->setTimeFromTimeString($slot->format('H:i'))->toDateTimeString(), $blocked, true,
             ));
     }
 
@@ -194,16 +203,18 @@ class LargePartyBookingManager extends BookingManager
     {
         $applyCap = SettingValue::flag('apply_max_guests_online', false);
         $cutoffFrom = self::cutoffFrom($date);
+        $cutoffMinutes = SettingValue::int('cutoff_minutes_before_closing', 0, 0, 1440);
 
-        if ($cutoffFrom === null && ! $applyCap) {
+        if ($cutoffMinutes <= 0 && ! $applyCap) {
             return [];
         }
+
+        $notes = ClosureNotes::onDate($date);
 
         $maxPax = null;
         $maxPerTime = [];
         $occupancy = [];
         if ($applyCap) {
-            $notes = ClosureNotes::onDate($date);
             $maxPax = ClosureNotes::maxPax($notes);
             $maxPerTime = ClosureNotes::maxPaxPerTime($notes);
             $occupancy = ClosureNotes::occupancyPerTime($date);
@@ -211,8 +222,18 @@ class LargePartyBookingManager extends BookingManager
 
         return $timeslots
             ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
-            ->filter(function (Carbon $at) use ($cutoffFrom, $applyCap, $maxPax, $maxPerTime, $occupancy, $guests): bool {
-                if (self::isPastCutoff($at, $cutoffFrom)) {
+            ->filter(function (Carbon $at) use ($cutoffFrom, $cutoffMinutes, $notes, $date, $applyCap, $maxPax, $maxPerTime, $occupancy, $guests): bool {
+                // Inside an event window the day's closing time means nothing -
+                // the event opens beside or instead of the normal hours (a
+                // 17:00 event after a lunch that closes at 15:00 would otherwise
+                // be cut off entirely). The cut-off then counts from the end of
+                // the window.
+                $window = $cutoffMinutes > 0 ? ClosureNotes::eventWindowAt($notes, $at) : null;
+                $cutoff = $window === null
+                    ? $cutoffFrom
+                    : $date->copy()->setTimeFromTimeString($window[1])->subMinutes($cutoffMinutes);
+
+                if (self::isPastCutoff($at, $cutoff)) {
                     return true;
                 }
 
@@ -230,38 +251,53 @@ class LargePartyBookingManager extends BookingManager
             ->all();
     }
 
-    /** @return array<int, string> */
-    private function fullyBookedByTablesAndNotes(Collection $timeslots, Carbon $date, ?int $noOfGuest): array
+    /** Does a note claim the whole day for online booking? */
+    private function allDayClosed(Carbon $date): bool
     {
-        // A note that claims the whole day closes online booking entirely -
-        // also for large parties, which run past the table check just below.
-        // Without this, a party could sit itself in online at Christmas even
-        // though the day has long been planned out.
-        //
         // A note beside the opening hours does not fall under this: its times
         // are already locked by the occupied tables, and the lunch service of
         // the same day stays bookable.
-        if (ClosureNotes::allDay(ClosureNotes::onDate($date), $date)
+        return ClosureNotes::allDay(ClosureNotes::onDate($date), $date)
             ->reject(fn ($note): bool => ClosureNotes::isOnlineOpen($note))
-            ->isNotEmpty()) {
-            return $timeslots
-                ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i'))->toDateTimeString())
-                ->values()
-                ->all();
+            ->isNotEmpty();
+    }
+
+    /**
+     * Slots that closure notes take: all of them for an all-day note - also for
+     * large parties, otherwise a party could sit itself in online at Christmas
+     * although the day has long been planned out - else those inside a note's
+     * time window (also for large parties: the storytelling evening is only
+     * assigned over the phone).
+     *
+     * @return array<int, string> date-times (Y-m-d H:i:s)
+     */
+    private function noteBlocked(Collection $timeslots, Carbon $date): array
+    {
+        $at = fn ($slot): Carbon => $date->copy()->setTimeFromTimeString($slot->format('H:i'));
+
+        if ($this->allDayClosed($date)) {
+            return $timeslots->map(fn ($slot): string => $at($slot)->toDateTimeString())->values()->all();
         }
 
-        // Whatever lies inside the time window of a note is taken - also for
-        // large parties, which run past the table check just below. Without
-        // this, a party could put itself online into the storytelling evening,
-        // which is explicitly only assigned over the phone.
         $notes = ClosureNotes::onDate($date);
 
-        $taken = $notes->isEmpty() ? [] : $timeslots
-            ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
-            ->filter(fn (Carbon $at): bool => ClosureNotes::isTakenAt($notes, $at))
-            ->map(fn (Carbon $at) => $at->toDateTimeString())
+        return $notes->isEmpty() ? [] : $timeslots
+            ->map($at)
+            ->filter(fn (Carbon $moment): bool => ClosureNotes::isTakenAt($notes, $moment))
+            ->map(fn (Carbon $moment): string => $moment->toDateTimeString())
             ->values()
             ->all();
+    }
+
+    /** @return array<int, string> */
+    private function fullyBookedByTablesAndNotes(Collection $timeslots, Carbon $date, ?int $noOfGuest): array
+    {
+        $taken = $this->noteBlocked($timeslots, $date);
+
+        // An all-day note has locked every slot already; no table lookup needed.
+        if ($taken !== [] && $this->allDayClosed($date)) {
+            return $taken;
+        }
 
         if ($this->isLargeParty() && self::skipTableCheck()) {
             return $taken;
@@ -280,9 +316,20 @@ class LargePartyBookingManager extends BookingManager
 
         $reservations = TableAllocator::reservationsOn($locationId, $date);
         $duration = (int) $this->location->getReservationStayTime();
+        $notes = ClosureNotes::onDate($date);
 
         return $timeslots
             ->map(fn ($slot) => $date->copy()->setTimeFromTimeString($slot->format('H:i')))
+            // At an event the tables are assigned by hand, so a slot inside the
+            // event window of an opted-in note skips the table lookup: the note
+            // holds every table, and the lookup would call the event itself
+            // fully booked. The note's guest cap governs capacity there. Always
+            // on, deliberately NOT tied to large_party_skip_table_check: that
+            // setting is about large parties, and switching it off must not
+            // silently kill the event slots. Everything else in the envelope
+            // keeps blocking through the occupied tables. Do not turn this into
+            // a table lookup.
+            ->reject(fn (Carbon $at): bool => ClosureNotes::eventWindowAt($notes, $at) !== null)
             ->filter(fn (Carbon $at): bool => TableAllocator::pick(
                 TableAllocator::freeAt($candidates, $at, $duration, $reservations), $guests,
             ) === null)
