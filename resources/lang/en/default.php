@@ -257,4 +257,9 @@ return [
     'console_undo_dry_run' => 'Dry run – nothing is deleted.',
     'console_undo_deleted' => '#:id deleted',
     'console_undo_skipped' => '#:id does not exist or is not from this import – skipped',
+
+    // Settings and permissions
+    'settings_label' => 'Reservation control',
+    'settings_description' => 'Configure how reservation control behaves.',
+    'permission_manage_settings' => 'Manage reservation control settings',
 ];

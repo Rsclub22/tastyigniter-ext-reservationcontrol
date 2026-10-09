@@ -25,6 +25,7 @@ use Wagnersnetz\ReservationControl\Console\ImportReservations;
 use Wagnersnetz\ReservationControl\Http\Controllers\InternalApiController;
 use Wagnersnetz\ReservationControl\Http\Controllers\InternalBookingController;
 use Wagnersnetz\ReservationControl\Http\Middleware\InternalNetworkOnly;
+use Wagnersnetz\ReservationControl\Models\Settings;
 
 /**
  * Local adjustments to the reservation form:
@@ -240,6 +241,29 @@ class Extension extends BaseExtension
 
             return new \Illuminate\Validation\Validator($translator, $data, $rules, $messages, $attributes);
         });
+    }
+
+    public function registerSettings(): array
+    {
+        return [
+            'settings' => [
+                'label' => 'lang:reservationcontrol::default.settings_label',
+                'description' => 'lang:reservationcontrol::default.settings_description',
+                'icon' => 'fa fa-calendar-check',
+                'model' => Settings::class,
+                'permissions' => ['Wagnersnetz.ReservationControl.ManageSettings'],
+            ],
+        ];
+    }
+
+    public function registerPermissions(): array
+    {
+        return [
+            'Wagnersnetz.ReservationControl.ManageSettings' => [
+                'label' => 'lang:reservationcontrol::default.permission_manage_settings',
+                'group' => 'module',
+            ],
+        ];
     }
 
     /**

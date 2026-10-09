@@ -257,4 +257,9 @@ return [
     'console_undo_dry_run' => 'Probelauf – nichts wird gelöscht.',
     'console_undo_deleted' => '#:id gelöscht',
     'console_undo_skipped' => '#:id existiert nicht oder stammt nicht aus diesem Import – übersprungen',
+
+    // Settings and permissions
+    'settings_label' => 'Reservierungssteuerung',
+    'settings_description' => 'Legen Sie fest, wie sich die Reservierungssteuerung verhält.',
+    'permission_manage_settings' => 'Einstellungen der Reservierungssteuerung verwalten',
 ];
