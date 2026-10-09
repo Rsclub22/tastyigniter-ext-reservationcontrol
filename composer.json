@@ -1,0 +1,45 @@
+{
+    "name": "wagnersnetz/ti-ext-reservationcontrol",
+    "type": "tastyigniter-package",
+    "description": "Large-party rules, closure notes, internal booking pages and a JSON API for TastyIgniter reservations.",
+    "license": "GPL-3.0-or-later",
+    "authors": [{ "name": "Philipp Wagner" }],
+    "require": {
+        "php": "^8.3",
+        "ext-dom": "*",
+        "ext-fileinfo": "*",
+        "ext-intl": "*",
+        "ext-json": "*",
+        "ext-zip": "*",
+        "tastyigniter/core": "^v4.0",
+        "tastyigniter/ti-ext-reservation": "^v4.0",
+        "tastyigniter/ti-ext-local": "^v4.0",
+        "tastyigniter/ti-ext-api": "^v4.0"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.2",
+        "pestphp/pest-plugin-laravel": "^3.0",
+        "rector/rector": "^2.0",
+        "sampoyigi/testbench": "^1.0"
+    },
+    "suggest": {
+        "tastyigniter/ti-theme-orange": "Detects the guest count a visitor typed into the public booking form."
+    },
+    "autoload": { "psr-4": { "Wagnersnetz\\ReservationControl\\": "src/" } },
+    "autoload-dev": { "psr-4": { "Wagnersnetz\\ReservationControl\\Tests\\": "tests/" } },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "extra": {
+        "tastyigniter-extension": {
+            "code": "wagnersnetz.reservationcontrol",
+            "name": "Reservation Control",
+            "description": "Large-party rules, closure notes, internal booking pages and a JSON API for TastyIgniter reservations.",
+            "icon": { "class": "fa fa-calendar-check", "backgroundColor": "#8C2B2B", "color": "#FFFFFF" }
+        }
+    }
+}
