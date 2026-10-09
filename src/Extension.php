@@ -88,7 +88,17 @@ class Extension extends BaseExtension
         $this->registerInternalRoutes();
         $this->registerInternalApiRoutes();
         RequestLocale::remember();
-        RequestLocale::forConsole();
+
+        // Deferred until every provider has booted. Resolving
+        // 'translator.localization' during boot caches it before TastyIgniter's
+        // System provider has filled localization.supportedLocales, and the
+        // singleton then rejects every language for the rest of the process -
+        // the service comes back with supportedLocales [] and setLocale('de')
+        // returning false. Found on the live installation, where it filled the
+        // log with "unsupported default language" and changed nothing.
+        $this->app->booted(static function (): void {
+            RequestLocale::forConsole();
+        });
 
         // Behind a reverse proxy the application sees the proxy's address for
         // every visitor: all visitors then share one throttling counter and the

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Wagnersnetz\ReservationControl;
 
+use Igniter\Flame\Support\Facades\Igniter;
 use Igniter\Flame\Translation\Middleware\Localization;
 use Igniter\System\Models\Language;
 use Illuminate\Routing\Route;
@@ -57,7 +58,10 @@ final class RequestLocale
     public static function forConsole(): void
     {
         try {
-            if (app()->runningInConsole()) {
+            // Igniter::hasDatabase() for the same reason the platform's own
+            // Localization middleware checks it: during install or a migration
+            // there is no settings table to read a default language from.
+            if (app()->runningInConsole() && Igniter::hasDatabase()) {
                 self::ensure(false);
             }
         } catch (Throwable $e) {
