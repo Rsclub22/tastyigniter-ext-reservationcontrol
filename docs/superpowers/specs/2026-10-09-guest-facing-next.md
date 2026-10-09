@@ -48,3 +48,27 @@ this already, through a `Livewire::listen('render')` hook that reads the
 component's shape defensively and renders nothing when it does not recognise
 it. Reuse that, and keep its rule: a missing notice is a disappointment, a
 broken booking form costs the restaurant its evening.
+
+## 3. The reservation link belongs in the extension, not in a theme page
+
+TastyIgniter builds `reservation_view_url` as `pageUrl('account.reservations',
+['reservationId' => ...])` — the account *list* page, with a parameter that
+page does not take. The single-reservation page's permalink is
+`/account/reservation/:hash`. So the link in every reservation mail points at
+the wrong page with the wrong key, and on a theme without customer accounts it
+points nowhere at all.
+
+Worked around on the first installation by re-enabling that theme page with
+just the `reservation-preview` component and writing the correct URL into the
+mail templates. That is their theme, not this package: a second installation
+gets the broken link again.
+
+What the package should do instead: serve its own page at a route of its own,
+looking the reservation up by hash. No login is needed — `getReservationByHash()`
+matches on the hash alone when no customer is given, and 32 hex characters are
+a capability token. Then override `reservation_view_url` so the platform's own
+mail templates become correct too, instead of every operator editing four
+templates by hand.
+
+Worth handling when it is built: an unknown hash currently renders an empty
+page rather than saying the reservation was not found.
