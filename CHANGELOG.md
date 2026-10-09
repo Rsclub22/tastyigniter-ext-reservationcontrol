@@ -4,6 +4,13 @@
 
 ### Added
 
+- Event slots in closure notes: an opted-in note (`online buchbar`) that states a time
+  ("MÄRCHENABEND 17 UHR") makes that time bookable inside its stored window, replacing or
+  extending the day's opening hours depending on whether the window overlaps them. First
+  change that creates bookable time instead of removing it. Never throws on the booking
+  page: unplaceable or overlapping times are dropped. `ClosureNotes::eventPlan()` exposes
+  the interpretation. Known limit: tables occupied by the note itself still report the slot
+  as fully booked.
 - First public version, extracted from one restaurant's live installation and generalised
   into a standalone package: large-party rules, internal phone-intake pages and JSON API,
   closure notes and blocked days, table allocation, daily sheet, console commands, and a

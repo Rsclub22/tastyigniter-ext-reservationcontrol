@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
 use Livewire\Livewire;
 use Symfony\Component\Mime\Address;
+use Throwable;
 use Wagnersnetz\ReservationControl\Api\StandardIncludes;
 use Wagnersnetz\ReservationControl\Console\EnterReservation;
 use Wagnersnetz\ReservationControl\Console\ImportReservations;
@@ -111,6 +112,20 @@ class Extension extends BaseExtension
         Event::listen(WorkingScheduleCreatedEvent::class, function (WorkingScheduleCreatedEvent $event): void {
             if ($exceptions = BlockedDates::asScheduleExceptions()) {
                 $event->schedule->setExceptions($exceptions);
+            }
+
+            // The one place that creates bookable time: the event windows of
+            // opted-in closure notes, on the opening schedule only. After the
+            // blocked days, so that a blocked day is never reopened. Never
+            // throws, see EventSlots.
+            try {
+                $isOpening = $event->schedule->getType() === 'opening';
+            } catch (Throwable) {
+                $isOpening = false;
+            }
+
+            if ($isOpening) {
+                EventSlots::apply($event->schedule);
             }
         });
 

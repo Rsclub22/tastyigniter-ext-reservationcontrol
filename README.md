@@ -75,6 +75,17 @@ read for a few German keywords (this parser is German-only on purpose):
 - `online buchbar`: the note's time window stays open for online booking, e.g.
   `Märchenabend, online buchbar`. Any negation in front of it (`nicht online buchbar`) or any
   all-day wording in the same note keeps the window closed.
+- A time in an opted-in note (`17 Uhr`, `ab 17:30 Uhr`, `11 Uhr und 13 Uhr`) is an **event
+  slot**: it becomes bookable inside the note's stored window (start plus duration, the
+  *envelope*, which otherwise blocks). A slot runs to the next stated time or to the end of
+  the envelope: `MÄRCHENABEND 17 UHR` with an envelope of 16:00-20:00 offers 17:00-20:00. If
+  the envelope overlaps the day's opening hours the event slots *replace* them, otherwise
+  they are *added* beside them. A time outside the envelope or that is no clock time opens
+  nothing, and a window that would overlap another is dropped - the booking page never
+  receives overlapping periods. Without `online buchbar` the stated times open nothing.
+  `ClosureNotes::eventPlan()` returns what was understood (see `EventPlan`).
+  **Known limit:** a closure note that occupies the tables still makes the table check
+  report its event slot as fully booked; see the changelog.
 
 ### Guest notice on special days
 
