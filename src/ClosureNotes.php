@@ -87,22 +87,27 @@ class ClosureNotes
      * blanks may sit between keyword, colon and text) and runs to the end of
      * the line, so a clause on the next line is never swallowed.
      */
-    private const string GUEST_TEXT_PATTERN = '/\bonline\s+(?:wieder\s+)?buchbar\b[ \t]*:[ \t]*((?:(?!\bhinweis[ \t]*:)[^\r\n])*)/iu';
+    private const string GUEST_TEXT_PATTERN = '/\bonline\s+(?:wieder\s+)?buchbar\b[ \t]*:[ \t]*((?:(?!\bg(?:\x{00e4}|ae)stehinweis[ \t]*:)[^\r\n])*)/iu';
 
     /**
-     * Text for guests that is advertised but opens nothing: "HINWEIS: Märchenabend,
+     * Text for guests that is advertised but opens nothing: "GÄSTEHINWEIS: Märchenabend,
      * Reservierung nur telefonisch". It reads to the end of the line like the
      * guest text above, but stops in front of an "online buchbar:" later on
-     * the same line, and the guest text above stops in front of "hinweis:" -
+     * the same line, and the guest text above stops in front of "gästehinweis:" -
      * so neither swallows the other, whichever comes first.
      *
      * The whole match (keyword and text) is guest prose and nothing else:
      * operative() cuts it out before any keyword, time, cap or all-day wording
-     * is read, so "HINWEIS: ... online buchbar ..." cannot open a window.
+     * is read, so "GÄSTEHINWEIS: ... online buchbar ..." cannot open a window.
+     *
+     * Deliberately a word nobody writes by accident ("Hinweis" is an ordinary
+     * word in internal notes, and this keyword PUBLISHES staff text to guests).
+     * "GAESTEHINWEIS" is accepted for keyboards without umlauts. Case-insensitive
+     * like its neighbours.
      *
      * German only, like every pattern here.
      */
-    private const string HINWEIS_PATTERN = '/\bhinweis[ \t]*:[ \t]*((?:(?!\bonline\s+(?:wieder\s+)?buchbar\b[ \t]*:)[^\r\n])*)/iu';
+    private const string HINWEIS_PATTERN = '/\bg(?:\x{00e4}|ae)stehinweis[ \t]*:[ \t]*((?:(?!\bonline\s+(?:wieder\s+)?buchbar\b[ \t]*:)[^\r\n])*)/iu';
 
     /**
      * Times that name an event slot in an opted-in note: "17 Uhr", "17:30 Uhr"
@@ -271,14 +276,14 @@ class ClosureNotes
         return true;
     }
 
-    /** The note's comment without its "HINWEIS:" text: the part every rule reads. */
+    /** The note's comment without its "GÄSTEHINWEIS:" text: the part every rule reads. */
     private static function operative(Reservation $note): string
     {
         return (string) preg_replace(self::HINWEIS_PATTERN, '', (string) $note->comment);
     }
 
     /**
-     * The guest text after "HINWEIS:", trimmed - advertised, never bookable and
+     * The guest text after "GÄSTEHINWEIS:", trimmed - advertised, never bookable and
      * never a reason to open anything. '' without a colon or without text; the
      * first occurrence that carries a text wins. Independent of the online
      * opt-in: it needs none.

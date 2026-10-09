@@ -87,6 +87,8 @@ class Extension extends BaseExtension
         $this->loadTranslationsFrom(__DIR__.'/../resources/lang', 'reservationcontrol');
         $this->registerInternalRoutes();
         $this->registerInternalApiRoutes();
+        RequestLocale::remember();
+        RequestLocale::forConsole();
 
         // Behind a reverse proxy the application sees the proxy's address for
         // every visitor: all visitors then share one throttling counter and the
@@ -297,9 +299,10 @@ class Extension extends BaseExtension
 
         // API routes carry no 'igniter' middleware group, so nothing sets the
         // locale there and mails sent from the API render in English. See
-        // RequestLocale. Never throws.
+        // RequestLocale, which also covers the console (the scheduler sends
+        // automation reminders with no request at all). Never throws.
         Event::listen(RouteMatched::class, static function (RouteMatched $event): void {
-            RequestLocale::apply($event->route);
+            RequestLocale::forRoute($event->route);
         });
 
         if ($orange) {

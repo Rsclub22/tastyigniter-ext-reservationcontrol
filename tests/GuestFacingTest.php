@@ -248,15 +248,19 @@ function facingEvenings(string $today = FACING_TODAY, int $min = 2, int $max = 6
 it('reads HINWEIS text to the end of the line, like the online keyword', function (string $comment, string $text): void {
     expect(ClosureNotes::hinweisText(facingNoteOf($comment)))->toBe($text);
 })->with([
-    'plain' => ['HINWEIS: Märchenabend mit Menü', 'Märchenabend mit Menü'],
-    'after other words' => ['MÄRCHENABEND 17 UHR MAX 30 PAX. HINWEIS: Märchenabend, Reservierung telefonisch', 'Märchenabend, Reservierung telefonisch'],
-    'lower case' => ['hinweis: Nur heute', 'Nur heute'],
-    'blanks around the colon' => ["Hinweis \t:   Mit Musik  ", 'Mit Musik'],
-    'no colon' => ['HINWEIS Märchenabend', ''],
-    'nothing after the colon' => ['HINWEIS:', ''],
-    'colon, then a newline' => ["HINWEIS:\nMax 60 PAX", ''],
-    'next line is not swallowed' => ["HINWEIS: Menü ab 18 Uhr\nmax 60 PAX", 'Menü ab 18 Uhr'],
-    'an empty first occurrence, a later one with text' => ["HINWEIS:\nHINWEIS: Später", 'Später'],
+    'plain' => ['GÄSTEHINWEIS: Märchenabend mit Menü', 'Märchenabend mit Menü'],
+    'without umlaut' => ['GAESTEHINWEIS: Märchenabend mit Menü', 'Märchenabend mit Menü'],
+    'the everyday word is no keyword' => ['Hinweis: Tisch 4 wackelt', ''],
+    'the everyday word in capitals is no keyword' => ['MAX 30 PAX. HINWEIS: Tisch 4 wackelt', ''],
+    'gast + hinweis apart is no keyword' => ['Gast Hinweis: Tisch 4 wackelt', ''],
+    'after other words' => ['MÄRCHENABEND 17 UHR MAX 30 PAX. GÄSTEHINWEIS: Märchenabend, Reservierung telefonisch', 'Märchenabend, Reservierung telefonisch'],
+    'lower case' => ['gästehinweis: Nur heute', 'Nur heute'],
+    'blanks around the colon' => ["Gästehinweis \t:   Mit Musik  ", 'Mit Musik'],
+    'no colon' => ['GÄSTEHINWEIS Märchenabend', ''],
+    'nothing after the colon' => ['GÄSTEHINWEIS:', ''],
+    'colon, then a newline' => ["GÄSTEHINWEIS:\nMax 60 PAX", ''],
+    'next line is not swallowed' => ["GÄSTEHINWEIS: Menü ab 18 Uhr\nmax 60 PAX", 'Menü ab 18 Uhr'],
+    'an empty first occurrence, a later one with text' => ["GÄSTEHINWEIS:\nGÄSTEHINWEIS: Später", 'Später'],
     'no keyword' => ['Märchenabend: Menü', ''],
 ]);
 
@@ -266,11 +270,11 @@ it('keeps HINWEIS and ONLINE BUCHBAR apart, whichever comes first and on one lin
     expect(ClosureNotes::guestText($note))->toBe($online)
         ->and(ClosureNotes::hinweisText($note))->toBe($hinweis);
 })->with([
-    'online first, same line' => ['ONLINE BUCHBAR: Märchenabend HINWEIS: nur Menü', 'Märchenabend', 'nur Menü'],
-    'hinweis first, same line' => ['HINWEIS: nur Menü ONLINE BUCHBAR: Märchenabend', 'Märchenabend', 'nur Menü'],
-    'two lines' => ["ONLINE BUCHBAR: Märchenabend\nHINWEIS: nur Menü", 'Märchenabend', 'nur Menü'],
-    'two lines, reversed' => ["HINWEIS: nur Menü\nONLINE BUCHBAR: Märchenabend", 'Märchenabend', 'nur Menü'],
-    'online keyword without colon inside the hinweis stays hinweis text' => ['HINWEIS: telefonisch, online buchbar ab Oktober', '', 'telefonisch, online buchbar ab Oktober'],
+    'online first, same line' => ['ONLINE BUCHBAR: Märchenabend GÄSTEHINWEIS: nur Menü', 'Märchenabend', 'nur Menü'],
+    'hinweis first, same line' => ['GÄSTEHINWEIS: nur Menü ONLINE BUCHBAR: Märchenabend', 'Märchenabend', 'nur Menü'],
+    'two lines' => ["ONLINE BUCHBAR: Märchenabend\nGÄSTEHINWEIS: nur Menü", 'Märchenabend', 'nur Menü'],
+    'two lines, reversed' => ["GÄSTEHINWEIS: nur Menü\nONLINE BUCHBAR: Märchenabend", 'Märchenabend', 'nur Menü'],
+    'online keyword without colon inside the hinweis stays hinweis text' => ['GÄSTEHINWEIS: telefonisch, online buchbar ab Oktober', '', 'telefonisch, online buchbar ab Oktober'],
 ]);
 
 it('lets HINWEIS open nothing, even when its text says "online buchbar"', function (string $comment): void {
@@ -283,10 +287,10 @@ it('lets HINWEIS open nothing, even when its text says "online buchbar"', functi
 
     expect(facingOffered(facingManager(2)))->toBe([]);
 })->with([
-    'plain hinweis' => ['MÄRCHENABEND MAX 30 PAX. HINWEIS: Märchenabend mit Menü'],
-    'hinweis that says online buchbar' => ['MÄRCHENABEND MAX 30 PAX. HINWEIS: Reservierung auch online buchbar'],
-    'hinweis that says online buchbar with a colon in its text' => ['MÄRCHENABEND MAX 30 PAX. HINWEIS: online buchbar'],
-    'hinweis with a time in it' => ['MÄRCHENABEND MAX 30 PAX. HINWEIS: Beginn 18 Uhr'],
+    'plain hinweis' => ['MÄRCHENABEND MAX 30 PAX. GÄSTEHINWEIS: Märchenabend mit Menü'],
+    'hinweis that says online buchbar' => ['MÄRCHENABEND MAX 30 PAX. GÄSTEHINWEIS: Reservierung auch online buchbar'],
+    'hinweis that says online buchbar with a colon in its text' => ['MÄRCHENABEND MAX 30 PAX. GÄSTEHINWEIS: online buchbar'],
+    'hinweis with a time in it' => ['MÄRCHENABEND MAX 30 PAX. GÄSTEHINWEIS: Beginn 18 Uhr'],
 ]);
 
 it('still opens the window with ONLINE BUCHBAR, hinweis beside it or not', function (string $comment): void {
@@ -295,8 +299,8 @@ it('still opens the window with ONLINE BUCHBAR, hinweis beside it or not', funct
     expect(facingOffered(facingManager(2)))->toContain('12:00', '18:00');
 })->with([
     'alone' => ['MÄRCHENABEND MAX 30 PAX. ONLINE BUCHBAR: Märchenabend mit Menü'],
-    'with a hinweis' => ['MÄRCHENABEND MAX 30 PAX. ONLINE BUCHBAR: Märchenabend mit Menü HINWEIS: nur Menü'],
-    'hinweis first' => ['MÄRCHENABEND MAX 30 PAX. HINWEIS: nur Menü ONLINE BUCHBAR: Märchenabend mit Menü'],
+    'with a hinweis' => ['MÄRCHENABEND MAX 30 PAX. ONLINE BUCHBAR: Märchenabend mit Menü GÄSTEHINWEIS: nur Menü'],
+    'hinweis first' => ['MÄRCHENABEND MAX 30 PAX. GÄSTEHINWEIS: nur Menü ONLINE BUCHBAR: Märchenabend mit Menü'],
 ]);
 
 it('advertises a blocked day by its hinweis while the day stays closed', function (): void {
@@ -316,7 +320,7 @@ it('marks an online-open blocked day as bookable', function (): void {
 
 it('lists ONLINE BUCHBAR text as bookable and HINWEIS text as not bookable', function (): void {
     facingNote('MÄRCHENABEND 17 UHR MAX 30 PAX. ONLINE BUCHBAR: Märchenabend mit Menü');
-    facingNote('WEIHNACHTEN 2 Gänge. HINWEIS: Weihnachtsmenü, Reservierung telefonisch', '2030-06-14');
+    facingNote('WEIHNACHTEN 2 Gänge. GÄSTEHINWEIS: Weihnachtsmenü, Reservierung telefonisch', '2030-06-14');
 
     expect(facingEvenings())->toBe([
         ['date' => FACING_DAY, 'text' => 'Märchenabend mit Menü', 'bookable' => true],
@@ -325,7 +329,7 @@ it('lists ONLINE BUCHBAR text as bookable and HINWEIS text as not bookable', fun
 });
 
 it('lists both texts of one note, the hinweis never bookable', function (): void {
-    facingNote('ONLINE BUCHBAR: Märchenabend HINWEIS: nur Menü');
+    facingNote('ONLINE BUCHBAR: Märchenabend GÄSTEHINWEIS: nur Menü');
 
     expect(facingEvenings())->toBe([
         ['date' => FACING_DAY, 'text' => 'Märchenabend', 'bookable' => true],
@@ -341,7 +345,7 @@ it('uses the restaurant\'s real note wording: raw text is never advertised', fun
     expect(facingEvenings())->toBe([]);
 
     // With a guest text the Christmas day is advertised - and stays closed online.
-    facingNote('WEIHNACHTEN: 2 Gänge: 11 Uhr und 13 Uhr. NICHTS DAZWISCHEN ANNEHMEN. BUCHUNG NUMMER 161 NICHT STORNIEREN. ONLINE RESERVIERUNGEN AN DEM TAG NICHT VERFÜGBAR. MAX 120 PAX. HINWEIS: Weihnachtsmenü mit zwei Gängen, Reservierung telefonisch', '2030-06-17');
+    facingNote('WEIHNACHTEN: 2 Gänge: 11 Uhr und 13 Uhr. NICHTS DAZWISCHEN ANNEHMEN. BUCHUNG NUMMER 161 NICHT STORNIEREN. ONLINE RESERVIERUNGEN AN DEM TAG NICHT VERFÜGBAR. MAX 120 PAX. GÄSTEHINWEIS: Weihnachtsmenü mit zwei Gängen, Reservierung telefonisch', '2030-06-17');
 
     $listed = facingEvenings();
 
@@ -349,9 +353,21 @@ it('uses the restaurant\'s real note wording: raw text is never advertised', fun
         ->and(json_encode($listed))->not->toContain('NICHTS DAZWISCHEN')->not->toContain('161');
 });
 
+it('publishes nothing of an internal "Hinweis:" remark', function (string $comment): void {
+    facingNote($comment);
+
+    expect(facingEvenings())->toBe([])
+        ->and(GuestNotice::eveningsHtml(Carbon::parse(FACING_TODAY)))->toBe('')
+        ->and(GuestNotice::forDate(FACING_DAY))->toBe([]);
+})->with([
+    'plain' => ['Hinweis: Tisch 4 wackelt'],
+    'after a cap' => ['Geschlossene Gesellschaft MAX 30 PAX. HINWEIS: Tisch 4 wackelt'],
+    'beside a real keyword' => ['online buchbar. Hinweis: Tisch 4 wackelt'],
+]);
+
 it('lists nothing without a guest text', function (): void {
     facingNote('Geschlossene Gesellschaft, online buchbar');
-    facingNote('HINWEIS:', '2030-06-14');
+    facingNote('GÄSTEHINWEIS:', '2030-06-14');
     BlockedDates::block('2030-06-17', 'Ruhetag', online: true, notice: '');
     BlockedDates::block('2030-06-18', 'Ruhetag', online: false, notice: '   ');
 
@@ -460,7 +476,7 @@ it('escapes markup in every guest text, in the list and on the page', function (
     $evil = '<script>alert(1)</script>';
     BlockedDates::block(FACING_DAY, 'x', online: true, notice: $evil.' hinweis');
     facingNote('ONLINE BUCHBAR: '.$evil.' online', '2030-06-14');
-    facingNote('HINWEIS: '.$evil.' note', '2030-06-17');
+    facingNote('GÄSTEHINWEIS: '.$evil.' note', '2030-06-17');
 
     $html = GuestNotice::eveningsHtml(Carbon::parse(FACING_TODAY));
     $page = GuestNotice::onRender(facingComponent('2030-06-11'))('<div wire:id="a"><form>F</form></div>');

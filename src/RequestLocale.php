@@ -11,13 +11,18 @@ use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Gives a request that no Localization middleware touches the installation's
- * default language.
+ * Gives an execution that nothing has set a locale for the installation's
+ * default language: one decision (ensure()), two entry points.
  *
- * TastyIgniter's API routes do not carry the 'igniter' middleware group, so
- * nothing sets the locale there and mails and texts triggered from the API
- * come out in config('app.locale') - English. Routes that DO carry the group
- * are left alone: the middleware has decided, and an admin's own language
+ *  - forRoute(): a request. TastyIgniter's API routes do not carry the 'igniter'
+ *    middleware group, so nothing sets the locale there.
+ *  - forConsole(): the command line (scheduler, queue worker, artisan), where no
+ *    request exists at all - the automation's reminders are sent from there.
+ *
+ * If nothing established a locale, the installation's default language is used.
+ *
+ * Without it mails and texts come out in config('app.locale') - English. Routes
+ * that DO carry the group are left alone: the middleware has decided, and an admin's own language
  * must not be overwritten.
  *
  * Never throws: an English mail is a blemish, a failing API call stops the
@@ -25,10 +30,55 @@ use Throwable;
  */
 final class RequestLocale
 {
-    public static function apply(Route $route): void
+    /**
+     * The locale the application started with. Application::setLocale() also
+     * rewrites config('app.locale'), so the config cannot tell afterwards
+     * whether somebody set a locale; this snapshot, taken at boot, can.
+     */
+    private static ?string $initial = null;
+
+    /** Take the snapshot (once, at boot, before anything can set a locale). */
+    public static function remember(): void
+    {
+        self::$initial ??= (string) app()->getLocale();
+    }
+
+    /** A request: the route's middleware may already have decided. */
+    public static function forRoute(Route $route): void
     {
         try {
-            if (self::localized($route)) {
+            self::ensure(self::localized($route));
+        } catch (Throwable $e) {
+            self::report($e->getMessage());
+        }
+    }
+
+    /** The command line: runs at boot, before any command can set a locale of its own. */
+    public static function forConsole(): void
+    {
+        try {
+            if (app()->runningInConsole()) {
+                self::ensure(false);
+            }
+        } catch (Throwable $e) {
+            self::report($e->getMessage());
+        }
+    }
+
+    /**
+     * The one decision. Nothing is done when a middleware has decided
+     * ($decided) or when the locale already differs from the one the application
+     * started with (a command, an admin's preference: deliberately set).
+     * Otherwise the default language, through the platform's own setter (it
+     * also sets Carbon and refuses unsupported codes). Never throws: an English
+     * mail is a blemish, a failing request or artisan command stops the day.
+     */
+    public static function ensure(bool $decided): void
+    {
+        try {
+            self::remember();
+
+            if ($decided || app()->getLocale() !== self::$initial) {
                 return;
             }
 
@@ -37,7 +87,6 @@ final class RequestLocale
                 return;
             }
 
-            // The platform's own setter: also sets Carbon and refuses unsupported codes.
             if (app('translator.localization')->setLocale($code) === false) {
                 self::report('unsupported default language "'.$code.'"');
             }

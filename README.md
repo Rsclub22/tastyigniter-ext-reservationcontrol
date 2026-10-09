@@ -87,13 +87,14 @@ read for a few German keywords (this parser is German-only on purpose):
 - `online buchbar`: the note's time window stays open for online booking, e.g.
   `Märchenabend, online buchbar`. Any negation in front of it (`nicht online buchbar`) or any
   all-day wording in the same note keeps the window closed.
-- `HINWEIS: <text>`: guest text that is **advertised and never bookable** (see *Special
+- `GÄSTEHINWEIS: <text>`: guest text that is **advertised and never bookable** (see *Special
   evenings* below). Read to the end of the line, like `online buchbar:`; each stops in front of
-  the other's keyword when both are on one line (`ONLINE BUCHBAR: Märchenabend HINWEIS: nur
-  Menü`). It is guest prose and nothing else: the text after `HINWEIS:` is cut out before any
+  the other's keyword when both are on one line (`ONLINE BUCHBAR: Märchenabend GÄSTEHINWEIS: nur
+  Menü`). It is guest prose and nothing else: the text after `GÄSTEHINWEIS:` is cut out before any
   other keyword, time, cap or all-day wording is read, so it can never open a window, name an
-  event time or close a day. Attention: the keyword is matched in any case, so an internal note
-  that happens to say `Hinweis: ...` is published on the booking page.
+  event time or close a day. The keyword is deliberately a word nobody writes by accident,
+  because it publishes staff text to guests: an everyday `Hinweis: Tisch 4 wackelt` is not
+  read (`GAESTEHINWEIS:` works for keyboards without umlauts; case does not matter).
 - A time written in the note (`17 Uhr`, `ab 17:30 Uhr`, `11 Uhr und 13 Uhr`) is an **event
   time**: exactly that time, not a window. The note's stored window (start plus duration, the
   *envelope*) stays blocked for everything else: `MÄRCHENABEND 17 UHR` with an envelope of
@@ -147,7 +148,7 @@ Two more additions to the booking page, from the same render listener:
 - **Special evenings.** A short list (at most 5), independent of the selected date, of the
   coming evenings that have a guest text, from today to the public booking horizon
   (`max_advance_time`): a blocked day's `hinweis` (whether or not the day can be booked online),
-  a closure note's `online buchbar:` text (bookable) and its `HINWEIS:` text (not bookable). A
+  a closure note's `online buchbar:` text (bookable) and its `GÄSTEHINWEIS:` text (not bookable). A
   bookable entry links to its date; one that cannot be booked online (including a date inside
   the minimum lead time) reads "Reservierung telefonisch" with the number. The raw note or
   reason is never advertised. A blocked day's `hinweis` wins over the notes of the same date,

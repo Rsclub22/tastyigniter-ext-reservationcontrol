@@ -10,6 +10,7 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
+use Wagnersnetz\ReservationControl\Extension;
 use Wagnersnetz\ReservationControl\RequestLocale;
 
 beforeEach(function (): void {
@@ -49,6 +50,46 @@ function localeMatched(Route $route): void
 {
     Event::dispatch(new RouteMatched($route, Request::create('/api/reservations')));
 }
+
+it('gives a console run the default language at boot', function (): void {
+    localeDefaultLanguage('de');
+    expect(app()->runningInConsole())->toBeTrue();
+
+    (new Extension(app()))->boot();
+
+    expect(app()->getLocale())->toBe('de')
+        ->and(__('reservationcontrol::default.invitation_call'))->toStartWith('Keine passende');
+});
+
+it('keeps a locale a console run already set for itself', function (): void {
+    localeDefaultLanguage('de');
+    config(['localization.supportedLocales' => ['en', 'de', 'fr']]);
+    app()->setLocale('fr');
+
+    RequestLocale::forConsole();
+
+    expect(app()->getLocale())->toBe('fr');
+});
+
+it('leaves a console run alone and throws nothing without a default language', function (): void {
+    localeDefaultLanguage(null);
+
+    RequestLocale::forConsole();
+
+    expect(app()->getLocale())->toBe('en');
+});
+
+it('logs instead of breaking the console when the database is down', function (): void {
+    localeDefaultLanguage('de');
+    DB::listen(static function (): void {
+        throw new RuntimeException('database down');
+    });
+    Log::shouldReceive('warning')->once();
+
+    RequestLocale::forConsole();
+
+    expect(app()->getLocale())->toBe('en');
+});
 
 it('gives a route without the igniter group the default language', function (): void {
     localeDefaultLanguage('de');

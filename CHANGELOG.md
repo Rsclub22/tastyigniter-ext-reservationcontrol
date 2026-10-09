@@ -8,8 +8,12 @@
   installation: API routes carry no `igniter` middleware group, so nothing set the locale and
   the request kept `app.locale`. A `RouteMatched` listener now gives such routes the
   installation's default language (through the platform's own localization setter); routes
-  that carry the group are untouched. Never throws; failures are logged and leave the locale
-  alone.
+  that carry the group are untouched. The same decision runs once at boot for command-line
+  executions (scheduler, queue worker, artisan), where no request exists: the automation's
+  reminders and follow-ups (`automation-reservation-schedule`) are therefore German too - if
+  an operator enables that automation and wonders why its mails use the default language,
+  this is why. A locale already set (a command's own, an admin's preference) is never
+  overwritten. Never throws; failures are logged and leave the locale alone.
 
 ### Changed
 
@@ -28,12 +32,12 @@
   the booking horizon, when nothing was removed, or without a number. The manager records what
   it removed (`OnlineBlock`); nothing is re-derived.
 - List of coming special evenings on the booking page (`SpecialEvenings`): blocked days'
-  `hinweis`, closure notes' `online buchbar:` text and the new `HINWEIS:` text, up to the
+  `hinweis`, closure notes' `online buchbar:` text and the new `GÄSTEHINWEIS:` text, up to the
   public booking horizon, five at most, each with a link to its date or "Reservierung
   telefonisch". Never the raw note or reason.
-- Closure note keyword `HINWEIS:`: guest text that is advertised, never bookable and never
+- Closure note keyword `GÄSTEHINWEIS:`: guest text that is advertised, never bookable and never
   opens anything; it is cut out before any other keyword, time or cap is read. The guest text
-  after `online buchbar:` now stops in front of a `HINWEIS:` on the same line.
+  after `online buchbar:` now stops in front of a `GÄSTEHINWEIS:` on the same line.
 
 - Event times in closure notes: a time written in a note ("MÄRCHENABEND 17 UHR") is exactly
   one bookable time inside the note's stored window - `17 UHR` is 17:00, `11 Uhr und 13 Uhr` is
