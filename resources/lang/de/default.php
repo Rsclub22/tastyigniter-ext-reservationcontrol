@@ -30,6 +30,7 @@ return [
     'attribute_email' => 'E-Mail',
     'attribute_note' => 'Notiz',
     'attribute_reason' => 'Grund',
+    'attribute_guest_notice' => 'Gästehinweis',
 
     // Date formats (Carbon isoFormat)
     'format_weekday_date' => 'dddd, D. MMMM',
@@ -311,6 +312,8 @@ return [
     'help_apply_max_guests_online' => 'Die Gästegrenze aus einem Sperrvermerk (z. B. „max 60 PAX“) gilt auch für Online-Buchungen. Bei der Telefonannahme bleibt sie ein Hinweis.',
     'label_block_allow_online' => 'Gäste dürfen online buchen',
     'help_block_allow_online' => 'Für besondere Anlässe, zu denen Gäste selbst reservieren sollen. Für echte Schließungen ausgeschaltet lassen.',
+    'placeholder_guest_notice' => 'Text für Gäste (optional), erscheint im Buchungsformular, wenn online gebucht werden darf',
+    'help_guest_notice' => 'Erscheint an diesem Tag über dem Online-Buchungsformular. Wird nur verwendet, wenn „Gäste dürfen online buchen“ angehakt ist.',
     'day_online_label' => 'Besonderer Tag – online buchbar',
     'print_day_online' => 'Besonderer Tag – Gäste können online reservieren.',
 ];

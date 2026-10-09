@@ -313,6 +313,7 @@
                     <input type="hidden" name="datum" value="{{ $datum->toDateString() }}">
                     <input type="text" name="grund" placeholder="{{ __($l.'placeholder_block_reason') }}" style="max-width:280px">
                     <label title="{{ __($l.'help_block_allow_online') }}"><input type="checkbox" name="online" value="1"> {{ __($l.'label_block_allow_online') }}</label>
+                    <input type="text" name="hinweis" maxlength="300" placeholder="{{ __($l.'placeholder_guest_notice') }}" title="{{ __($l.'help_guest_notice') }}" style="max-width:280px">
                     <button type="submit" class="knopf-klein">{{ __($l.'action_block_day') }}</button>
                 </form>
             @endif

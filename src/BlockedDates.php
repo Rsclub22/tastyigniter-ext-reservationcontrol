@@ -45,7 +45,7 @@ class BlockedDates
      * that predate the per-day switch must keep blocking. Anything else that is
      * not a well-formed entry blocks as well: when in doubt, stay closed.
      *
-     * @return array<string, array{grund: string, online: bool}>
+     * @return array<string, array{grund: string, online: bool, hinweis: string}>
      */
     public static function entries(): array
     {
@@ -69,8 +69,9 @@ class BlockedDates
                 ? [
                     'grund' => is_string($value['grund'] ?? null) ? $value['grund'] : '',
                     'online' => ($value['online'] ?? false) === true,
+                    'hinweis' => is_string($value['hinweis'] ?? null) ? $value['hinweis'] : '',
                 ]
-                : ['grund' => is_string($value) ? $value : '', 'online' => false];
+                : ['grund' => is_string($value) ? $value : '', 'online' => false, 'hinweis' => ''];
         }
 
         return $entries;
@@ -98,10 +99,17 @@ class BlockedDates
         return (self::entries()[$date]['online'] ?? false) === true;
     }
 
-    public static function block(string $date, string $reason = '', bool $online = false): void
+    /** The text a guest sees on an online-bookable special day; '' when none is set. */
+    public static function notice(string $date): string
+    {
+        return self::entries()[$date]['hinweis'] ?? '';
+    }
+
+    /** $notice is the guest-facing text, only ever shown when $online is true. */
+    public static function block(string $date, string $reason = '', bool $online = false, string $notice = ''): void
     {
         $dates = self::entries();
-        $dates[$date] = ['grund' => $reason, 'online' => $online];
+        $dates[$date] = ['grund' => $reason, 'online' => $online, 'hinweis' => $notice];
         self::store($dates);
     }
 

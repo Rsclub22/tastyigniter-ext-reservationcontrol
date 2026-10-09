@@ -30,6 +30,7 @@ return [
     'attribute_email' => 'E-mail',
     'attribute_note' => 'Note',
     'attribute_reason' => 'Reason',
+    'attribute_guest_notice' => 'Guest notice',
 
     // Date formats (Carbon isoFormat)
     'format_weekday_date' => 'dddd, MMMM D',
@@ -311,6 +312,8 @@ return [
     'help_apply_max_guests_online' => 'The guest limit from a closure note (e.g. "max 60 PAX") also limits online bookings. When taking a booking by phone it stays a hint only.',
     'label_block_allow_online' => 'Guests can book online',
     'help_block_allow_online' => 'For special events guests should be able to book themselves. Leave off for real closures.',
+    'placeholder_guest_notice' => 'Text for guests (optional), shown on the booking form if guests can book online',
+    'help_guest_notice' => 'Shown above the online booking form on this day. Only used if "Guests can book online" is ticked.',
     'day_online_label' => 'Special day – open for online booking',
     'print_day_online' => 'Special day – guests can reserve online.',
 ];

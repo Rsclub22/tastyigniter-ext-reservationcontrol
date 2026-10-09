@@ -190,9 +190,11 @@ class InternalBookingController extends Controller
             'datum' => ['required', 'date'],
             'grund' => ['nullable', 'string', 'max:120'],
             'online' => ['nullable', 'boolean'],
+            'hinweis' => ['nullable', 'string', 'max:300'],
         ], [], [
             'datum' => __('reservationcontrol::default.attribute_date'),
             'grund' => __('reservationcontrol::default.attribute_reason'),
+            'hinweis' => __('reservationcontrol::default.attribute_guest_notice'),
         ]);
 
         $date = Carbon::parse($data['datum'])->toDateString();
@@ -211,7 +213,7 @@ class InternalBookingController extends Controller
             ]);
         }
 
-        BlockedDates::block($date, trim((string) ($data['grund'] ?? '')), $request->boolean('online'));
+        BlockedDates::block($date, trim((string) ($data['grund'] ?? '')), $request->boolean('online'), trim((string) ($data['hinweis'] ?? '')));
 
         return $this->backTo($request, $date)->with('hinweis', __('reservationcontrol::default.notice_day_blocked', [
             'date' => $this->formatDate($date, 'format_weekday_date'),

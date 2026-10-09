@@ -382,10 +382,11 @@ class InternalApiController extends ApiController
             'datum' => ['required', 'date'],
             'grund' => ['nullable', 'string', 'max:190'],
             'online' => ['nullable', 'boolean'],
+            'hinweis' => ['nullable', 'string', 'max:300'],
         ]);
 
         $date = Carbon::parse($data['datum'])->toDateString();
-        BlockedDates::block($date, (string) ($data['grund'] ?? ''), $request->boolean('online'));
+        BlockedDates::block($date, (string) ($data['grund'] ?? ''), $request->boolean('online'), trim((string) ($data['hinweis'] ?? '')));
 
         return response()->json(['gesperrt' => $date, 'alle' => BlockedDates::all()]);
     }
