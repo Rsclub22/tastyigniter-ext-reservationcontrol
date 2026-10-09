@@ -24,6 +24,8 @@ use Throwable;
  */
 final class GuestNotice
 {
+    private static bool $reported = false;
+
     /**
      * The texts that apply on a date (Y-m-d), possibly none.
      *
@@ -70,14 +72,34 @@ final class GuestNotice
     public static function onRender(mixed $component): ?Closure
     {
         try {
-            $html = self::noticeHtml($component);
-            if ($html === '') {
+            // Filled while the view renders (LargePartyBookingManager), read
+            // below once it has: forget what an earlier render left behind.
+            OnlineBlock::reset();
+            self::$reported = false;
+
+            if (($date = self::selectedDate($component)) === null) {
                 return null;
             }
 
-            return static function (mixed $page = null) use ($html): ?string {
+            $notice = self::guarded(static fn (): string => self::noticeHtml($component));
+            $evenings = self::guarded(static fn (): string => self::eveningsHtml());
+            $telephone = SpecialEvenings::telephone();
+
+            if ($notice === '' && $evenings === '' && $telephone === '') {
+                return null;
+            }
+
+            return static function (mixed $page = null) use ($date, $notice, $evenings, $telephone): ?string {
                 try {
-                    return is_string($page) ? self::inject($page, $html) : null;
+                    if (! is_string($page)) {
+                        return null;
+                    }
+
+                    // Only now: the time slots - and with them what online
+                    // booking removed - exist after the view has rendered.
+                    $invitation = self::guarded(static fn (): string => self::invitationHtml($date, $telephone));
+
+                    return ($html = $notice.$invitation.$evenings) === '' ? null : self::inject($page, $html);
                 } catch (Throwable $e) {
                     self::report($e);
 
@@ -89,6 +111,61 @@ final class GuestNotice
 
             return null;
         }
+    }
+
+    /** One part of the extras failing must not cost the others, let alone the page. */
+    private static function guarded(Closure $part): string
+    {
+        try {
+            return $part();
+        } catch (Throwable $e) {
+            self::report($e);
+
+            return '';
+        }
+    }
+
+    /** "Keine passende Zeit dabei? Rufen Sie uns an" - when online booking took a time away on $date. */
+    public static function invitationHtml(string $date, string $telephone): string
+    {
+        if (($number = SpecialEvenings::invitation($date, $telephone)) === null) {
+            return '';
+        }
+
+        /** @var view-string $view */
+        $view = 'reservationcontrol::guest-invitation';
+
+        return trim(view($view, ['telephone' => $number])->render());
+    }
+
+    /** The list of coming special evenings; '' when there are none. */
+    public static function eveningsHtml(?Carbon $today = null): string
+    {
+        $location = SpecialEvenings::location();
+        if ($location === null) {
+            return '';
+        }
+
+        $evenings = SpecialEvenings::upcoming(
+            $today ?? Carbon::today(),
+            // Both come from the Location's LocationAction behaviour (__call), which phpstan cannot see.
+            (int) $location->getMinReservationAdvanceTime(), // @phpstan-ignore method.notFound
+            (int) $location->getMaxReservationAdvanceTime(), // @phpstan-ignore method.notFound
+        );
+        if ($evenings === []) {
+            return '';
+        }
+
+        $format = (string) __('reservationcontrol::default.evenings_date_format');
+        foreach ($evenings as &$evening) {
+            $evening['label'] = Carbon::parse($evening['date'])->format($format);
+        }
+        unset($evening);
+
+        /** @var view-string $view */
+        $view = 'reservationcontrol::guest-evenings';
+
+        return trim(view($view, ['evenings' => $evenings, 'telephone' => SpecialEvenings::telephone()])->render());
     }
 
     /**
@@ -160,6 +237,12 @@ final class GuestNotice
 
     private static function report(Throwable $e): void
     {
+        // One line per render is enough; the parts usually fail for the same reason.
+        if (self::$reported) {
+            return;
+        }
+        self::$reported = true;
+
         try {
             Log::warning('reservationcontrol: guest notice skipped: '.$e->getMessage(), ['exception' => $e]);
         } catch (Throwable) {

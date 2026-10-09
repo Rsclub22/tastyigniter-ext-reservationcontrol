@@ -13,6 +13,19 @@
 
 ### Added
 
+- Telephone invitation on the booking page: when the online cut-off, the guest cap, a closure
+  note's window or an all-day note removed a time on the selected date, "Keine passende Zeit
+  dabei? Rufen Sie uns an" with the location's telephone number. Not on a closed day, outside
+  the booking horizon, when nothing was removed, or without a number. The manager records what
+  it removed (`OnlineBlock`); nothing is re-derived.
+- List of coming special evenings on the booking page (`SpecialEvenings`): blocked days'
+  `hinweis`, closure notes' `online buchbar:` text and the new `HINWEIS:` text, up to the
+  public booking horizon, five at most, each with a link to its date or "Reservierung
+  telefonisch". Never the raw note or reason.
+- Closure note keyword `HINWEIS:`: guest text that is advertised, never bookable and never
+  opens anything; it is cut out before any other keyword, time or cap is read. The guest text
+  after `online buchbar:` now stops in front of a `HINWEIS:` on the same line.
+
 - Event times in closure notes: a time written in a note ("MÄRCHENABEND 17 UHR") is exactly
   one bookable time inside the note's stored window - `17 UHR` is 17:00, `11 Uhr und 13 Uhr` is
   those two, the rest of the window stays blocked. Online they open only with `online

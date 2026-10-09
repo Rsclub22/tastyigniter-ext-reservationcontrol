@@ -317,4 +317,9 @@ return [
     'day_online_label' => 'Special day – open for online booking',
     'print_day_online' => 'Special day – guests can reserve online.',
     'error_slot_blocked' => 'Online reservations are not possible at this time. Please choose another time or call us.',
+    'invitation_call' => 'No suitable time? Give us a call:',
+    'evenings_heading' => 'Special evenings',
+    'evenings_book' => 'Book this date',
+    'evenings_by_phone' => 'Reservations by phone',
+    'evenings_date_format' => 'M j',
 ];

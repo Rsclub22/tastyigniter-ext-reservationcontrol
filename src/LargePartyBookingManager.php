@@ -186,11 +186,20 @@ class LargePartyBookingManager extends BookingManager
             $blocked = array_merge($blocked, $this->onlineLimited($slots, $date, $guests));
         }
 
-        return $blocked === []
-            ? $slots
-            : $slots->reject(fn ($slot): bool => in_array(
-                $date->copy()->setTimeFromTimeString($slot->format('H:i'))->toDateTimeString(), $blocked, true,
-            ));
+        if ($blocked === []) {
+            return $slots;
+        }
+
+        $offered = $slots->reject(fn ($slot): bool => in_array(
+            $date->copy()->setTimeFromTimeString($slot->format('H:i'))->toDateTimeString(), $blocked, true,
+        ));
+
+        // The one place that knows a time was taken away from the guest - the
+        // telephone invitation reads it from here (OnlineBlock) instead of
+        // guessing again.
+        OnlineBlock::record($date->toDateString(), $slots->count() - $offered->count());
+
+        return $offered;
     }
 
     /**

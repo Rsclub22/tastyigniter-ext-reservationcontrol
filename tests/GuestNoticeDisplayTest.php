@@ -121,7 +121,8 @@ it('leaves a page untouched when it has no plain opening root tag', function (st
 it('renders nothing for a day that is still blocked', function (): void {
     BlockedDates::block(DISPLAY_DAY, 'Betriebsferien', online: false, notice: 'Kommen Sie!');
 
-    expect(GuestNotice::onRender(bookingLike()))->toBeNull()
+    // The location has a telephone, so the hook may answer; it must add nothing.
+    expect(GuestNotice::onRender(bookingLike())?->__invoke(ROOT))->toBeNull()
         ->and(GuestNotice::noticeHtml(bookingLike()))->toBe('');
 });
 
@@ -129,7 +130,7 @@ it('renders nothing when no date is selected or the day has no notice', function
     openDayWithNotice('Text');
 
     expect(GuestNotice::onRender(bookingLike(null)))->toBeNull()
-        ->and(GuestNotice::onRender(bookingLike('2030-12-30')))->toBeNull();
+        ->and(GuestNotice::onRender(bookingLike('2030-12-30'))?->__invoke(ROOT))->toBeNull();
 });
 
 // ---- never take the booking page down ----------------------------------------------
