@@ -75,7 +75,7 @@ jobs:
       # No composer.lock is committed (this is a library), so dependencies
       # resolve fresh on every run. That is deliberate: it catches an upstream
       # release breaking the extension on the day it happens, not months later.
-      - uses: ramsey/composer-install@v3
+      - uses: ramsey/composer-install@v4
 
       - name: Tests
         run: vendor/bin/pest
