@@ -220,6 +220,18 @@ class Extension extends BaseExtension
             }
         });
 
+        // The core lists 'duration' in $appends. Laravel serialises an appended
+        // attribute by calling its getter with null instead of the stored value,
+        // and the core's getter turns null into the location's stay time - so
+        // toArray(), and with it the whole API, reported the default for every
+        // reservation. The app at the counter showed 90 minutes for a 240-minute
+        // party and wrote the 90 back on its next save. Without the append the
+        // column is still serialised through the same getter, now with its value;
+        // a reservation without one still gets the default.
+        Reservation::extend(static function (Reservation $model): void {
+            $model->setAppends(array_values(array_diff($model->getAppends(), ['duration'])));
+        });
+
         // Take over the table assignment ourselves: single table first, a
         // combination only when no single table suffices.
         //

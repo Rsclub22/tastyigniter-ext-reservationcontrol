@@ -4,6 +4,12 @@
 
 ### Fixed
 
+- The API reported the location's stay time as every reservation's `duration`, whatever the
+  reservation was saved with: the core appends `duration`, and Laravel serialises an appended
+  attribute by calling its getter with null. A client that saved the reservation back (the
+  reservation app) then overwrote the real duration with the default. The extension drops the
+  append; the stored value is serialised again, and a reservation without one still gets the
+  stay time.
 - Mails (and any translated text) triggered from the API rendered in English on a German
   installation: API routes carry no `igniter` middleware group, so nothing set the locale and
   the request kept `app.locale`. A `RouteMatched` listener now gives such routes the
