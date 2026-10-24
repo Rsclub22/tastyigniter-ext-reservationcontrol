@@ -328,6 +328,53 @@
         @endif
     </div>
 
+    {{-- Gast vor den Uhrzeiten, wie in der App auf jedem Geraet: Name und Nummer
+         werden getippt, waehrend der Gast redet, und der Klick auf die Uhrzeit
+         nimmt an. Stehen die Zeiten oben, muss man zum Abschliessen wieder hoch.
+         Die Zeitknoepfe haengen per form="annahme" am Formular, die Reihenfolge
+         im Dokument ist ihnen gleich. --}}
+    <div class="karte">
+        <h2>{{ __($l.'section_guest') }}</h2>
+        <form method="post" id="annahme" action="/intern">
+            @csrf
+            <input type="hidden" name="datum" value="{{ $datum->toDateString() }}">
+            <input type="hidden" name="gaeste" value="{{ $gaeste }}">
+            <input type="hidden" name="raum" value="{{ $raum?->id }}">
+
+            <div class="felder">
+                <div>
+                    <label for="nachname">{{ __($l.'attribute_last_name') }} <span class="pflicht">*</span></label>
+                    <input type="text" id="nachname" name="nachname" value="{{ old('nachname') }}" autofocus required>
+                </div>
+                <div>
+                    <label for="telefon">{{ __($l.'attribute_telephone') }} <span class="pflicht">*</span></label>
+                    <input type="tel" id="telefon" name="telefon" value="{{ old('telefon') }}" required>
+                </div>
+                <div>
+                    <label for="email">{{ __($l.'attribute_email') }} <span style="font-weight:400">{{ __($l.'label_optional') }}</span></label>
+                    <input type="email" id="email" name="email" value="{{ old('email') }}">
+                </div>
+            </div>
+
+            <div style="margin-top:14px">
+                <label for="notiz">{{ __($l.'attribute_note') }} <span style="font-weight:400">{{ __($l.'label_optional') }}</span></label>
+                <textarea id="notiz" name="notiz">{{ old('notiz') }}</textarea>
+            </div>
+
+            <button type="submit" class="absenden" name="zeit" value="">{{ __($l.'action_accept') }}</button>
+            <p class="hinweis">
+                {!! __($l.'hint_saved_confirmed') !!}
+                @if ($raum)
+                    {!! __($l.'hint_room_assigned', ['room' => e($raum->name)]) !!}
+                @else
+                    {{ __($l.'hint_table_automatic') }}
+                @endif
+                {!! __($l.'hint_no_mail') !!}
+                {{ __($l.'hint_time_missing') }}
+            </p>
+        </form>
+    </div>
+
     <div class="karte">
         <h2>{{ __($l.'occupancy_on', ['date' => $datum->locale($loc)->isoFormat(__($l.'format_weekday_date'))]) }}</h2>
         <div class="zahlen">
@@ -394,48 +441,6 @@
                 @endif
             </p>
         @endif
-    </div>
-
-    <div class="karte">
-        <h2>{{ __($l.'section_guest') }}</h2>
-        <form method="post" id="annahme" action="/intern">
-            @csrf
-            <input type="hidden" name="datum" value="{{ $datum->toDateString() }}">
-            <input type="hidden" name="gaeste" value="{{ $gaeste }}">
-            <input type="hidden" name="raum" value="{{ $raum?->id }}">
-
-            <div class="felder">
-                <div>
-                    <label for="nachname">{{ __($l.'attribute_last_name') }} <span class="pflicht">*</span></label>
-                    <input type="text" id="nachname" name="nachname" value="{{ old('nachname') }}" autofocus required>
-                </div>
-                <div>
-                    <label for="telefon">{{ __($l.'attribute_telephone') }} <span class="pflicht">*</span></label>
-                    <input type="tel" id="telefon" name="telefon" value="{{ old('telefon') }}" required>
-                </div>
-                <div>
-                    <label for="email">{{ __($l.'attribute_email') }} <span style="font-weight:400">{{ __($l.'label_optional') }}</span></label>
-                    <input type="email" id="email" name="email" value="{{ old('email') }}">
-                </div>
-            </div>
-
-            <div style="margin-top:14px">
-                <label for="notiz">{{ __($l.'attribute_note') }} <span style="font-weight:400">{{ __($l.'label_optional') }}</span></label>
-                <textarea id="notiz" name="notiz">{{ old('notiz') }}</textarea>
-            </div>
-
-            <button type="submit" class="absenden" name="zeit" value="">{{ __($l.'action_accept') }}</button>
-            <p class="hinweis">
-                {!! __($l.'hint_saved_confirmed') !!}
-                @if ($raum)
-                    {!! __($l.'hint_room_assigned', ['room' => e($raum->name)]) !!}
-                @else
-                    {{ __($l.'hint_table_automatic') }}
-                @endif
-                {!! __($l.'hint_no_mail') !!}
-                {{ __($l.'hint_time_missing') }}
-            </p>
-        </form>
     </div>
 
     @if ($raeume->isNotEmpty())

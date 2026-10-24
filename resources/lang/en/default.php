@@ -100,7 +100,7 @@ return [
     'slot_no_table' => 'no table',
     'slot_room_free' => ':room free',
     'slot_tables' => ':free/:total tables · max. :largest seats',
-    'hint_click_time' => 'Clicking a time accepts the reservation with the data entered below.',
+    'hint_click_time' => 'Clicking a time accepts the reservation with the data entered above.',
     'hint_no_table_day' => 'On this day bookings are taken without a table – the table plan handles the seating.',
     'hint_only_noted_times' => 'Only the times named in the closure note are offered.',
     'hint_note_times_no_table' => 'At the times covered by the closure note, bookings are taken without a table; otherwise as usual, with a table.',
@@ -115,7 +115,7 @@ return [
     'hint_room_assigned' => 'The room <strong>:room</strong> is assigned instead of an automatic table.',
     'hint_table_automatic' => 'The table is assigned automatically.',
     'hint_no_mail' => '<strong>No e-mail</strong> is sent – neither to the guest nor to the house.',
-    'hint_time_missing' => 'If you do not click a time above, the time is missing and the form will complain.',
+    'hint_time_missing' => 'If you do not click a time below, the time is missing and the form will complain.',
 
     'rooms_on' => 'Rooms on :date',
     'col_room' => 'Room',

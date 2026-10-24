@@ -23,6 +23,10 @@
 
 ### Changed
 
+- The internal intake page puts the guest card above the times, as the reservation app now does
+  on every device: name and number are typed while the guest talks, and the click on a time
+  accepts. With the times on top one had to scroll back up to finish. The "above"/"below" hints
+  follow the new order.
 - Event times are no longer windows: the first version offered everything from the stated
   time to the end of the note's window (17:00, 17:15 ... 19:45 for "17 UHR"), let the table
   check call every one of them taken on the internal page, and applied the guest cap per

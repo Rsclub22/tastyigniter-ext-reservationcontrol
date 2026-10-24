@@ -100,7 +100,7 @@ return [
     'slot_no_table' => 'ohne Tisch',
     'slot_room_free' => ':room frei',
     'slot_tables' => ':free/:total Tische · max. :largest Pl.',
-    'hint_click_time' => 'Ein Klick auf die Uhrzeit nimmt die Reservierung mit den unten eingetragenen Daten an.',
+    'hint_click_time' => 'Ein Klick auf die Uhrzeit nimmt die Reservierung mit den oben eingetragenen Daten an.',
     'hint_no_table_day' => 'An diesem Tag wird ohne Tisch angenommen – die Verteilung macht der Tischplan.',
     'hint_only_noted_times' => 'Angeboten werden nur die im Sperrvermerk genannten Zeiten.',
     'hint_note_times_no_table' => 'Zu den Zeiten des Sperrvermerks wird ohne Tisch angenommen, sonst wie gewohnt mit Tisch.',
@@ -115,7 +115,7 @@ return [
     'hint_room_assigned' => 'Zugewiesen wird <strong>:room</strong>, nicht automatisch ein Tisch.',
     'hint_table_automatic' => 'Der Tisch wird automatisch zugewiesen.',
     'hint_no_mail' => 'Es wird <strong>keine E-Mail</strong> verschickt – weder an den Gast noch ans Haus.',
-    'hint_time_missing' => 'Ohne Klick auf eine Uhrzeit oben fehlt die Zeit und das Formular meldet sich.',
+    'hint_time_missing' => 'Ohne Klick auf eine Uhrzeit unten fehlt die Zeit und das Formular meldet sich.',
 
     'rooms_on' => 'Räume am :date',
     'col_room' => 'Raum',
