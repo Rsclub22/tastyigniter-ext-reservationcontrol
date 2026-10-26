@@ -27,7 +27,8 @@ non-blocking; pint and phpstan run on 8.3 only. Use the `check` skill to run all
 - **Tests / DB**: `DB_*` come from the environment (docker-compose, CI). `phpunit.xml.dist`
   must not override them. `tests/Pest.php` resets Flame's internal `Model::$eventsBooted`
   per test; if every test fails in `beforeEach` after a core upgrade, look there first.
-- **CI images**: use the ECR mirror for MariaDB, never Docker Hub (rate limits).
+- **CI database**: MariaDB comes from Ubuntu's apt archive, not a container image. Docker Hub
+  and the ECR mirror both throttle the shared runner IPs (`toomanyrequests`).
 - **Locale**: every entry point must have the installation's default language. API routes
   get it via a `RouteMatched` listener (`src/RequestLocale.php`), console runs after boot.
   Never overwrite a locale that is already set.
